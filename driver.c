@@ -3,10 +3,13 @@
 #include <float.h>
 #include <string.h>
 #include "kdtree.h"
+#include "mpi.h"
 
 #ifndef M_PI
 #    define M_PI 3.14159265358979323846
 #endif
+
+#define MASTER 0
 
 struct kdtree tree_construct(int size, double x[], double y[], double z[]) {
 
@@ -29,17 +32,31 @@ struct kdtree tree_construct(int size, double x[], double y[], double z[]) {
 }
 
 long long two_point_correlation(struct kdtree tree, double x[], double y[],
-									double z[], int n, double r) {
+									double z[], int n, double r, MPI_Comm comm) {
+    int mpi_size, mpi_rank;
+    MPI_Comm_size(comm, &mpi_size);
+    MPI_Comm_rank(comm, &mpi_rank);
+
+
 	int i;
 	long long result;
 	result = 0;
-	for (i=0; i<n; i++) {
+	for (i=mpi_rank; i<n; i += mpi_size) {
 		result += radius(tree.root, 0, x[i], y[i], z[i], r);
 	}
+
+    MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_INTEGER, MPI_SUM, comm);
+
 	return result;
 }
 
-double landy_szalay(struct kdtree data, struct kdtree random, double rad) {
+double landy_szalay(struct kdtree data, struct kdtree random, double rad, MPI_Comm comm) {
+
+
+    int mpi_size, mpi_rank;
+    MPI_Comm_size(comm, &mpi_size);
+    MPI_Comm_rank(comm, &mpi_rank);
+
 	int total;
 	int dd, dr, rr;
 	dd = 0;
@@ -51,13 +68,17 @@ double landy_szalay(struct kdtree data, struct kdtree random, double rad) {
 	printf("rsize = %d, dsize = %d, rad = %2.20f\n",random.size,data.size,rad);
 
 	int i;
-	for (i=0; i<data.size; i++) {
+	for (i=mpi_rank; i<data.size; i += mpi_size) {
 		dd += radius(data.root,0,data.x[i],data.y[i],data.z[i],rad);
 		dr += radius(data.root,0,random.x[i],random.y[i],random.z[i],rad);
 	}
-	for (i=0; i<random.size; i++) {
+	for (i=mpi_rank; i<random.size; i += mpi_size) {
 		rr += radius(random.root,0,random.x[i],random.y[i],random.z[i],rad);
 	}
+
+    MPI_Allreduce(MPI_IN_PLACE, &dd, 1, MPI_INTEGER, MPI_SUM, comm);
+    MPI_Allreduce(MPI_IN_PLACE, &dr, 1, MPI_INTEGER, MPI_SUM, comm);
+    MPI_Allreduce(MPI_IN_PLACE, &rr, 1, MPI_INTEGER, MPI_SUM, comm);
 
 	double ls;
 	//if(rr == 0) return 0.0;

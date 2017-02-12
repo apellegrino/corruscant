@@ -27,7 +27,7 @@ static inline double min(double a, double b) {
 	return a < b ? a : b;
 }
 
-static double max3(double a, double b, double c) {
+static inline double max3(double a, double b, double c) {
 	if(a < b) {
 		if(a < c) { return a; }
 		else { return c; }
@@ -37,7 +37,7 @@ static double max3(double a, double b, double c) {
 	}
 }
 
-static double min3(double a, double b, double c) {
+static inline double min3(double a, double b, double c) {
 	if(a > b) {
 		if(a > c) { return a; }
 		else { return c; }
