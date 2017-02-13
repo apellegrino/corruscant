@@ -3,8 +3,22 @@
 #include <stdio.h>
 #include <float.h>
 #include <string.h>
-#include "kdstruct.h"
+//#include "kdstruct.h"
 #include "mpi.h"
+
+typedef struct kdtree {
+	struct node* root;
+	int size;
+	double *x, *y, *z;
+} kdtree_t;
+
+typedef struct node {
+	double x, y, z;
+	int size;
+	double xmin, xmax, ymin, ymax, zmin, zmax;
+	struct node * lchild;
+	struct node * rchild;
+} node_t;
 
 static inline void swapDouble(double * a, double * b) {
 	double temp;
