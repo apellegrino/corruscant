@@ -23,7 +23,7 @@ def parse_line(string):
 def get_comoving(redshift):
     integral, error = integrate.quad(integrand, # function
                                     1/(1.+redshift), 1.0, # limits
-                                    args = (0.7, 0., 0.3, 0.)
+                                    args = (0.7, 0., 0.3, 0.))
     return c / H_0 * integral
 
 def readfile_for_astroML(path):
