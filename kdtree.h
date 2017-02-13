@@ -12,14 +12,15 @@ typedef struct node node_t;
 
 static inline double max(double, double);
 static inline double min(double, double);
-
 static inline double max3(double, double, double);
 static inline double min3(double, double, double);
 static inline double norm2(double, double, double);
+
 static inline void swapDouble(double *, double *);
 static inline void swapInt(int *, int *);
 void quicksort(double *, int *, int, int);
 int * argsort(double *, int);
+
 void partition(double *, int *, double, int, int, int, int);
 node_t * build(double *, double *, double *,
 					int *, int *, int *,

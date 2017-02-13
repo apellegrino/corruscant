@@ -314,11 +314,11 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 
 kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
 
-	kdtree_t t;
-	t.size = size;
-	t.x = x;
-	t.y = y;
-	t.z = z;
+	kdtree_t tree;
+	tree.size = size;
+	tree.x = x;
+	tree.y = y;
+	tree.z = z;
 
 	// Argsort the inputs
 	int *x_arg, *y_arg, *z_arg;
@@ -326,9 +326,9 @@ kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
 	y_arg = argsort(y, size);
 	z_arg = argsort(z, size);
 
-	t.root = build(x,y,z,x_arg,y_arg,z_arg,0,size-1,X);
+	tree.root = build(x,y,z,x_arg,y_arg,z_arg,0,size-1,X);
 
-	return t;
+	return tree;
 }
 
 long long two_point_correlation(kdtree_t tree, double x[], double y[],
@@ -341,7 +341,9 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
 	int i;
 	long long result;
 	result = 0;
-	for (i=mpi_rank; i<n; i += mpi_size) {
+    int nlocal = n / mpi_size + (n % mpi_size < mpi_rank);
+	//for (i=mpi_rank; i<n; i += mpi_size) {
+    for(i=0; i<nlocal; i++) {
 		result += radius(tree.root, 0, x[i], y[i], z[i], r);
 	}
 
