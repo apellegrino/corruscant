@@ -48,7 +48,7 @@ def readfile(path):
 	return x, y, z
 
 #r = np.logspace(-.7,1.6,25)
-r = np.array([50.])
+r = np.array([200.])
 print r,r.shape
 
 #data_file = "data/2SLAQ_clustering/testset_data_4.dat"

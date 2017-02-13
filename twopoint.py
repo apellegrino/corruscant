@@ -34,7 +34,7 @@ class kdtree(Structure):
     	("z",POINTER(c_double)),
         ]
 
-kdlib = CDLL(os.path.abspath("driver.so"))
+kdlib = CDLL(os.path.abspath("libkdtree.so"))
 
 if MPI._sizeof(MPI.Comm) == sizeof(c_int):
     MPI_Comm = c_int

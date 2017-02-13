@@ -4,6 +4,7 @@
 #include <float.h>
 #include <string.h>
 #include "kdstruct.h"
+#include "mpi.h"
 
 static inline void swapDouble(double * a, double * b) {
 	double temp;
@@ -98,20 +99,6 @@ int * argsort(double *a, int size) {
 
 enum dim { X=0, Y=1, Z=2 };
 
-/*
-struct node_sph {
-	double theta, phi;
-	struct node * lchild;
-	struct node * rchild;
-}
-
-int data_data(struct kdtree t) {
-	int i;
-	for(i=0; i<size; i++) {
-		
-	}	
-}
-*/
 void partition(double * vals, int * args, double key, int left, int right, 
 				int median, int med_index) {
 	int i, j, k, arg, size, split;
@@ -121,7 +108,6 @@ void partition(double * vals, int * args, double key, int left, int right,
 	size = right-left+1;
 	int *args_new = (int*) malloc(sizeof(int)*size);
 
-	//for(i=0; i<size; i++) args_new[i] = -1;
 	args_new[split] = -1;
 	for(i=left; i<=right; i++) {
 		arg = args[i];
@@ -136,16 +122,15 @@ void partition(double * vals, int * args, double key, int left, int right,
 	}
 
 	memcpy(args+left,args_new,size*sizeof(int));
-	//free(args_new);
 }
 
-struct node * build(double *x, double *y, double *z,
+node_t * build(double *x, double *y, double *z,
 					int *x_arg, int *y_arg, int *z_arg,
 					int left, int right, enum dim d) {
 	d=d%3;
 
 	int med, med_arg;
-	struct node *parent = (struct node *) malloc( sizeof(struct node) );
+	node_t *parent = (node_t *) malloc( sizeof(node_t) );
 	//Median index of the sub-array. Rounds down for even sized lists
 	med = (left+right)/2;
 
@@ -193,10 +178,7 @@ struct node * build(double *x, double *y, double *z,
 		parent->zmax = max(parent->z,parent->rchild->z);
 
 		parent->size = 1 + parent->rchild->size;
-	/*
-		printf("%i %i (%f %f %f) -> (%f %f %f)\n", med_arg, d, parent->x,parent->y,parent->z,
-							parent->rchild->x,parent->rchild->y,parent->rchild->z);
-	*/
+
 		return parent;
 
 	} else if (right-left == 2) { //length 3, two children
@@ -212,11 +194,7 @@ struct node * build(double *x, double *y, double *z,
 		parent->zmax = max3(parent->z,parent->lchild->zmax,parent->rchild->zmax);
 
 		parent->size = 1 + parent->lchild->size + parent->rchild->size;
-		/*
-		printf("%i %i (%f %f %f) -> (%f %f %f) (%f %f %f)\n", med_arg, d, parent->x,parent->y,parent->z,
-			parent->lchild->x,parent->lchild->y,parent->lchild->z,
-			parent->rchild->x,parent->rchild->y,parent->rchild->z);
-		*/
+
 		return parent;
 	}
 
@@ -240,80 +218,18 @@ struct node * build(double *x, double *y, double *z,
 	parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,med+1,right,d+1);
 
 	parent->size = 1 + parent->lchild->size + parent->rchild->size;
-	/*
-	printf("%i %i (%f %f %f) -> (%f %f %f) (%f %f %f)\n", med_arg, d, parent->x,parent->y,parent->z,
-			parent->lchild->x,parent->lchild->y,parent->lchild->z,
-			parent->rchild->x,parent->rchild->y,parent->rchild->z);
-	*/
-			
+
 	return parent;
 }
 
-void verify(struct node *root, enum dim d) {
-	d=d%3;
-	struct node *p = root;
-    char *errmsg = "node %p should not be %s child of %p\n";
 
-	if (root->lchild != NULL) {
-		switch(d) {
-			case X:
-				if(root->x <= root->lchild->x) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"left",(void*)root);
-				}
-				break;
-			case Y:
-				if(root->y <= root->lchild->y) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"left",(void*)root);
-				}
-				break;
-			case Z:
-				if(root->z <= root->lchild->z) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"left",(void*)root);
-				}
-				break;
-		}
-		verify(root->lchild,d+1);
-	}
-	if (root->rchild != NULL) {
-		switch(d) {
-			case X:
-				if(root->x >= root->rchild->x) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"right",(void*)root);
-				}
-				break;
-			case Y:
-				if(root->y >= root->rchild->y) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"right",(void*)root);
-				}
-				break;
-			case Z:
-				if(root->z >= root->rchild->z) {
-					fprintf(stderr,errmsg,
-                    (void*)root->lchild,"right",(void*)root);
-				}
-				break;
-		}
-		verify(root->rchild,d+1);
-	}
-}
-
-void destroy(struct node *p) {
+void destroy(node_t *p) {
 	if(p->lchild != NULL) destroy(p->lchild);
 	if(p->rchild != NULL) destroy(p->rchild);
 	free(p);
 }
 
-int count(struct node *p) {
-    if(p->rchild == NULL) return (p->lchild == NULL);
-    return (count(p->lchild) + count(p->rchild));
-}
-
-int radius(struct node *p, enum dim d, double x, double y, double z, double r) {
+int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	d=d%3;
 	int i;
 	double rsq, dx, dy, dz;
@@ -347,48 +263,10 @@ int radius(struct node *p, enum dim d, double x, double y, double z, double r) {
 						norm2(dxmax,dymax,dzmin) < rsq &&
 						norm2(dxmax,dymax,dzmax) < rsq );
 
-		//printf("%d %d\n", p->size, contained);
 		if(contained) {
 			return p->size;
 		}
 
-		/*
-		switch(d) {
-			case X:
-				if (x+r < p->x) {
-					i = radius(p->lchild,d+1,x,y,z,r);
-				} else if (x-r > p->x) {
-					i = radius(p->rchild,d+1,x,y,z,r);
-				} else {
-					i= (int) (n < rsq) +
-						radius(p->lchild,d+1,x,y,z,r) +
-						radius(p->rchild,d+1,x,y,z,r);
-				}
-				break;
-			case Y:
-				if (y+r < p->y) {
-					i=radius(p->lchild,d+1,x,y,z,r);
-				} else if (y-r > p->y) {
-					i=radius(p->rchild,d+1,x,y,z,r);
-				} else {
-					i= (int) (n < rsq) +
-						radius(p->lchild,d+1,x,y,z,r) +
-						radius(p->rchild,d+1,x,y,z,r);
-				}
-				break;
-			case Z:
-				if (z+r < p->z) {
-					i=radius(p->lchild,d+1,x,y,z,r);
-				} else if (z-r > p->z) {
-					i=radius(p->rchild,d+1,x,y,z,r);
-				} else {
-					i= (int) (n < rsq) +
-						radius(p->lchild,d+1,x,y,z,r) +
-						radius(p->rchild,d+1,x,y,z,r);
-				}
-				break;
-		}
-		*/
 		switch(d) {
 			case X:
 				pos_upper = x+r;
@@ -418,4 +296,42 @@ int radius(struct node *p, enum dim d, double x, double y, double z, double r) {
 		return i;
 	}
 	
+}
+
+kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
+
+	kdtree_t t;
+	t.size = size;
+	t.x = x;
+	t.y = y;
+	t.z = z;
+
+	// Argsort the inputs
+	int *x_arg, *y_arg, *z_arg;
+	x_arg = argsort(x, size);
+	y_arg = argsort(y, size);
+	z_arg = argsort(z, size);
+
+	t.root = build(x,y,z,x_arg,y_arg,z_arg,0,size-1,X);
+
+	return t;
+}
+
+long long two_point_correlation(kdtree_t tree, double x[], double y[],
+									double z[], int n, double r, MPI_Comm comm) {
+    int mpi_size, mpi_rank;
+    MPI_Comm_size(comm, &mpi_size);
+    MPI_Comm_rank(comm, &mpi_rank);
+
+
+	int i;
+	long long result;
+	result = 0;
+	for (i=mpi_rank; i<n; i += mpi_size) {
+		result += radius(tree.root, 0, x[i], y[i], z[i], r);
+	}
+
+    MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_INTEGER, MPI_SUM, comm);
+
+	return result;
 }
