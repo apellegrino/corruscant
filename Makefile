@@ -4,7 +4,6 @@ all: libkdtree
 .PHONY: clean
 
 # Cosmology lib does not provide much speed benefit so ignore it for now
-
 cosmology:
 	${CC} -shared -lm -o cosmology.so -fPIC cosmology.c
 

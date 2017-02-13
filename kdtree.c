@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <float.h>
 #include <string.h>
-//#include "kdstruct.h"
 #include "mpi.h"
+#include "kdtree.h"
 
 typedef struct kdtree {
 	struct node* root;
