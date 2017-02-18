@@ -63,5 +63,5 @@ int count(node_t *p) {
 }
 
 int main(void) {
-    printf("A node is %d bytes.\n", (int) sizeof(node_t *));
+    printf("A node is %d bytes.\n", (int) sizeof(node_t));
 }

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <float.h>
 #include <string.h>
+#include <time.h>
 #include "mpi.h"
 #include "kdtree.h"
 
@@ -243,6 +244,8 @@ void destroy(node_t *p) {
 	free(p);
 }
 
+/*  Query how many points in the tree with head p lie within radius r of point
+    (x, y, z). Recursive. */
 int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	d=d%3;
 	int i;
@@ -338,16 +341,30 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
     MPI_Comm_rank(comm, &mpi_rank);
 
 
-	int i;
-	long long result;
-	result = 0;
-    int nlocal = n / mpi_size + (n % mpi_size < mpi_rank);
+	long long result = 0;
+
+    int nlocal = n / mpi_size + (n % mpi_size > mpi_rank);
+
+    int idx_min = 0;
+    if (mpi_rank > 0)
+        idx_min = mpi_rank * ( n / mpi_size ) + min( mpi_rank, n % mpi_size );
+
+    int idx_max_plus_one = idx_min + nlocal;
+
+    clock_t start = clock(), diff;
+
+    int i;
 	//for (i=mpi_rank; i<n; i += mpi_size) {
-    for(i=0; i<nlocal; i++) {
+    for(i=idx_min; i<idx_max_plus_one; i++) {
 		result += radius(tree.root, 0, x[i], y[i], z[i], r);
 	}
+    diff = clock() - start;
 
+    printf("Time on process %d: %f sec per 1000\n", mpi_rank, (double)diff*1000/CLOCKS_PER_SEC/(idx_max_plus_one-idx_min));
+
+    //printf("before: %lld\n", result);
     MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_INTEGER, MPI_SUM, comm);
+    //printf("after: %lld\n", result);
 
 	return result;
 }

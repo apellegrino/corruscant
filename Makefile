@@ -10,5 +10,8 @@ cosmology:
 libkdtree:
 	${CC} -O2 -shared -o libkdtree.so -fPIC kdtree.c
 
+threaded:
+	${CC} -O2 -shared -lpthread -o libkdtree.so -fPIC kdtree_thread.c
+
 clean:
-	rm *.so *.pyc
+	rm -f *.o *.so *.pyc

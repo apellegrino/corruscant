@@ -19,7 +19,9 @@ typedef struct kdtree {
 typedef struct node {
 	double x, y, z;
 	int size;
+    /*
 	double xmin, xmax, ymin, ymax, zmin, zmax;
+    */
 	struct node * lchild;
 	struct node * rchild;
 } node_t;
@@ -177,23 +179,27 @@ node_t * build(double *x, double *y, double *z,
 
 	/* notes: separate max and min functions do more comparisons than necessary */
 	if(right == left) {
+        /*
 		parent->xmin = parent->x;
 		parent->xmax = parent->x;
 		parent->ymin = parent->y;
 		parent->ymax = parent->y;
 		parent->zmin = parent->z;
 		parent->zmax = parent->z;
+        */
 		parent->size = 1;
 		return parent;
 	} else if(right-left == 1) { //length 2, one child
 		parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,right,right,d);
 
+        /*
 		parent->xmin = min(parent->x,parent->rchild->x);
 		parent->xmax = max(parent->x,parent->rchild->x);
 		parent->ymin = min(parent->y,parent->rchild->y);
 		parent->ymax = max(parent->y,parent->rchild->y);
 		parent->zmin = min(parent->z,parent->rchild->z);
 		parent->zmax = max(parent->z,parent->rchild->z);
+        */
 
 		parent->size = 1 + parent->rchild->size;
 
@@ -204,12 +210,15 @@ node_t * build(double *x, double *y, double *z,
 		parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,right,right,d);
 
         // compute minimum coords of parent and all children
+
+        /*
 		parent->xmin = min3(parent->x,parent->lchild->xmin,parent->rchild->xmin);
 		parent->xmax = max3(parent->x,parent->lchild->xmax,parent->rchild->xmax);
 		parent->ymin = min3(parent->y,parent->lchild->ymin,parent->rchild->ymin);
 		parent->ymax = max3(parent->y,parent->lchild->ymax,parent->rchild->ymax);
 		parent->zmin = min3(parent->z,parent->lchild->zmin,parent->rchild->zmin);
 		parent->zmax = max3(parent->z,parent->lchild->zmax,parent->rchild->zmax);
+        */
 
 		parent->size = 1 + parent->lchild->size + parent->rchild->size;
 
@@ -253,19 +262,23 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	d=d%3;
 	int i;
 	double rsq, dx, dy, dz;
+    /*
 	double dxmin, dxmax, dymin, dymax, dzmin, dzmax;
+    */
 	double pos_upper, pos_lower, point;
 	rsq = r*r;
 	dx = p->x - x;
 	dy = p->y - y;
 	dz = p->z - z;
 
+    /*
 	dxmin = p->xmin - x;
 	dxmax = p->xmax - x;
 	dymin = p->ymin - y;
 	dymax = p->ymax - y;
 	dzmin = p->zmin - z;
 	dzmax = p->zmax - z;
+    */
 	
 	double n = norm2(dx,dy,dz);
 
@@ -274,6 +287,7 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	} else if (p->lchild == NULL) {
 		return (n < rsq) + radius(p->rchild,d+1,x,y,z,r);
 	} else {
+        /*
 		int contained = ( norm2(dxmin,dymin,dzmin) < rsq &&
 						norm2(dxmin,dymin,dzmax) < rsq &&
 						norm2(dxmin,dymax,dzmin) < rsq &&
@@ -286,6 +300,7 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 		if(contained) {
 			return p->size;
 		}
+        */
 
 		switch(d) {
 			case X:
@@ -382,6 +397,9 @@ void * twopoint_wrap(void *voidargs) {
     return;
 }
 
+/*  Compute the sum of the number of data points in the tree which lie within
+radius r of each of the (x,y,z) points in the array. Result may easily exceed
+the size of a 32-bit int, so we return a long long. */
 long long two_point_correlation(kdtree_t tree, double x[], double y[],
 									double z[], int n, double r, MPI_Comm comm) {
 
@@ -405,7 +423,9 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
 
 	long long result = 0;
 
-    clock_t start = clock(), diff;
+    //clock_t start = clock(), diff;
+    double t1, t2, diff;
+    t1 = MPI_Wtime();
     for(i=1; i<NUM_THREADS; i++) {
         
         pthread_create(threads+i, NULL, twopoint_wrap, msts+i);
@@ -419,9 +439,11 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
     for (i=0; i<NUM_THREADS; i++) {
         result += ss.sum[i];
     }
-    diff = clock() - start;
+    //diff = clock() - start;
+    t2 = MPI_Wtime();
+    diff = t2 - t1;
 
-    printf("Time on process: %f sec\n", (double)diff/CLOCKS_PER_SEC/NUM_THREADS);
+    printf("Time on process: %f sec\n", diff);
 
 	return result;
 }
