@@ -7,20 +7,6 @@
 #include "mpi.h"
 #include "kdtree.h"
 
-typedef struct kdtree {
-	struct node* root;
-	int size;
-	double *x, *y, *z;
-} kdtree_t;
-
-typedef struct node {
-	double x, y, z;
-	int size;
-	double xmin, xmax, ymin, ymax, zmin, zmax;
-	struct node * lchild;
-	struct node * rchild;
-} node_t;
-
 static inline void swapDouble(double * a, double * b) {
 	double temp;
 	temp = *a;
@@ -111,7 +97,6 @@ int * argsort(double *a, int size) {
 	return ind;
 }
 
-
 enum dim { X=0, Y=1, Z=2 };
 
 void partition(double * vals, int * args, double key, int left, int right, 
@@ -122,7 +107,6 @@ void partition(double * vals, int * args, double key, int left, int right,
 	k = split+1;
 	size = right-left+1;
 	int *args_new = (int*) malloc(sizeof(int)*size);
-
 	args_new[split] = -1;
 	for(i=left; i<=right; i++) {
 		arg = args[i];
@@ -142,6 +126,8 @@ void partition(double * vals, int * args, double key, int left, int right,
 node_t * build(double *x, double *y, double *z,
 					int *x_arg, int *y_arg, int *z_arg,
 					int left, int right, enum dim d) {
+
+
 	d=d%3;
 
 	int med, med_arg;
@@ -151,15 +137,15 @@ node_t * build(double *x, double *y, double *z,
 
 	//Find index of the median in appropriate position list
 	switch(d) {
-		case X:
-			med_arg = x_arg[med];
-			break;
-		case Y:
-			med_arg = y_arg[med];
-			break;
-		case Z:
-			med_arg = z_arg[med];
-			break;
+    case X:
+        med_arg = x_arg[med];
+        break;
+    case Y:
+        med_arg = y_arg[med];
+        break;
+    case Z:
+        med_arg = z_arg[med];
+        break;
 	}
 
 	//this node is the median
@@ -174,66 +160,41 @@ node_t * build(double *x, double *y, double *z,
 
 	/* notes: separate max and min functions do more comparisons than necessary */
 	if(right == left) {
-		parent->xmin = parent->x;
-		parent->xmax = parent->x;
-		parent->ymin = parent->y;
-		parent->ymax = parent->y;
-		parent->zmin = parent->z;
-		parent->zmax = parent->z;
-		parent->size = 1;
+
 		return parent;
+
 	} else if(right-left == 1) { //length 2, one child
+
 		parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,right,right,d);
-
-		parent->xmin = min(parent->x,parent->rchild->x);
-		parent->xmax = max(parent->x,parent->rchild->x);
-		parent->ymin = min(parent->y,parent->rchild->y);
-		parent->ymax = max(parent->y,parent->rchild->y);
-		parent->zmin = min(parent->z,parent->rchild->z);
-		parent->zmax = max(parent->z,parent->rchild->z);
-
-		parent->size = 1 + parent->rchild->size;
-
 		return parent;
 
 	} else if (right-left == 2) { //length 3, two children
+
 		parent->lchild = build(x,y,z,x_arg,y_arg,z_arg,left,left,d);
 		parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,right,right,d);
-
-        // compute minimum coords of parent and all children
-		parent->xmin = min3(parent->x,parent->lchild->xmin,parent->rchild->xmin);
-		parent->xmax = max3(parent->x,parent->lchild->xmax,parent->rchild->xmax);
-		parent->ymin = min3(parent->y,parent->lchild->ymin,parent->rchild->ymin);
-		parent->ymax = max3(parent->y,parent->lchild->ymax,parent->rchild->ymax);
-		parent->zmin = min3(parent->z,parent->lchild->zmin,parent->rchild->zmin);
-		parent->zmax = max3(parent->z,parent->lchild->zmax,parent->rchild->zmax);
-
-		parent->size = 1 + parent->lchild->size + parent->rchild->size;
-
 		return parent;
+
 	}
 
 
 	//partition index array of other dims w.r.t. current dim
 	switch(d) {
-		case X:
-			partition(x, y_arg, x[med_arg], left, right, med_arg, med);
-			partition(x, z_arg, x[med_arg], left, right, med_arg, med);
-			break;
-		case Y:
-			partition(y, z_arg, y[med_arg], left, right, med_arg, med);
-			partition(y, x_arg, y[med_arg], left, right, med_arg, med);
-			break;
-		case Z:
-			partition(z, x_arg, z[med_arg], left, right, med_arg, med);
-			partition(z, y_arg, z[med_arg], left, right, med_arg, med);
-			break;
+    case X:
+        partition(x, y_arg, x[med_arg], left, right, med_arg, med);
+        partition(x, z_arg, x[med_arg], left, right, med_arg, med);
+        break;
+    case Y:
+        partition(y, z_arg, y[med_arg], left, right, med_arg, med);
+        partition(y, x_arg, y[med_arg], left, right, med_arg, med);
+        break;
+    case Z:
+        partition(z, x_arg, z[med_arg], left, right, med_arg, med);
+        partition(z, y_arg, z[med_arg], left, right, med_arg, med);
+        break;
 	}
+
 	parent->lchild = build(x,y,z,x_arg,y_arg,z_arg,left,med-1,d+1);
 	parent->rchild = build(x,y,z,x_arg,y_arg,z_arg,med+1,right,d+1);
-
-	parent->size = 1 + parent->lchild->size + parent->rchild->size;
-
 	return parent;
 }
 
@@ -257,13 +218,6 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	dy = p->y - y;
 	dz = p->z - z;
 
-	dxmin = p->xmin - x;
-	dxmax = p->xmax - x;
-	dymin = p->ymin - y;
-	dymax = p->ymax - y;
-	dzmin = p->zmin - z;
-	dzmax = p->zmax - z;
-	
 	double n = norm2(dx,dy,dz);
 
 	if(p->lchild == NULL && p->rchild == NULL) {
@@ -271,35 +225,22 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	} else if (p->lchild == NULL) {
 		return (n < rsq) + radius(p->rchild,d+1,x,y,z,r);
 	} else {
-		int contained = ( norm2(dxmin,dymin,dzmin) < rsq &&
-						norm2(dxmin,dymin,dzmax) < rsq &&
-						norm2(dxmin,dymax,dzmin) < rsq &&
-						norm2(dxmin,dymax,dzmax) < rsq &&
-						norm2(dxmax,dymin,dzmin) < rsq &&
-						norm2(dxmax,dymin,dzmax) < rsq &&
-						norm2(dxmax,dymax,dzmin) < rsq &&
-						norm2(dxmax,dymax,dzmax) < rsq );
-
-		if(contained) {
-			return p->size;
-		}
-
 		switch(d) {
-			case X:
-				pos_upper = x+r;
-				pos_lower = x-r;
-				point = p->x;
-				break;
-			case Y:
-				pos_upper = y+r;
-				pos_lower = y-r;
-				point = p->y;
-				break;
-			case Z:
-				pos_upper = z+r;
-				pos_lower = z-r;
-				point = p->z;
-				break;
+        case X:
+            pos_upper = x+r;
+            pos_lower = x-r;
+            point = p->x;
+            break;
+        case Y:
+            pos_upper = y+r;
+            pos_lower = y-r;
+            point = p->y;
+            break;
+        case Z:
+            pos_upper = z+r;
+            pos_lower = z-r;
+            point = p->z;
+            break;
 		}
 		if (pos_upper < point) {
 			i=radius(p->lchild,d+1,x,y,z,r);
@@ -335,7 +276,9 @@ kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
 }
 
 long long two_point_correlation(kdtree_t tree, double x[], double y[],
-									double z[], int n, double r, MPI_Comm comm) {
+    						double z[], int n, double r, MPI_Comm comm) {
+
+
     int mpi_size, mpi_rank;
     MPI_Comm_size(comm, &mpi_size);
     MPI_Comm_rank(comm, &mpi_rank);
@@ -351,16 +294,17 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
 
     int idx_max_plus_one = idx_min + nlocal;
 
-    clock_t start = clock(), diff;
 
+    double t1, t2;
     int i;
-	//for (i=mpi_rank; i<n; i += mpi_size) {
+    
+    t1 = MPI_Wtime();
     for(i=idx_min; i<idx_max_plus_one; i++) {
 		result += radius(tree.root, 0, x[i], y[i], z[i], r);
 	}
-    diff = clock() - start;
+    t2 = MPI_Wtime();
 
-    printf("Time on process %d: %f sec per 1000\n", mpi_rank, (double)diff*1000/CLOCKS_PER_SEC/(idx_max_plus_one-idx_min));
+    printf("Time: %f sec\n", t2 - t1);
 
     //printf("before: %lld\n", result);
     MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_INTEGER, MPI_SUM, comm);

@@ -1,14 +1,20 @@
-//#include <time.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <float.h>
-#include <string.h>
+#define FLOAT double
+
+typedef double myFloat;
 
 enum dim;
 
-typedef struct kdtree kdtree_t;
+typedef struct kdtree {
+	struct node* root;
+	int size;
+	double *x, *y, *z;
+} kdtree_t;
 
-typedef struct node node_t;
+typedef struct node {
+	float x, y, z;
+	struct node * lchild;
+	struct node * rchild;
+} node_t;
 
 static inline double max(double, double);
 static inline double min(double, double);
