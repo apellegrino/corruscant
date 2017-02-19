@@ -3,7 +3,7 @@
 #include "mpi.h"
 #include "kdtree.h"
 
-#define SIZE 4000000
+#define SIZE 400
 
 int main(int argc, char *argv[]) {
 

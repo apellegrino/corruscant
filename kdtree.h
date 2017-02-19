@@ -1,4 +1,4 @@
-#define FLOAT double
+#define FLOAT float
 
 enum dim;
 
