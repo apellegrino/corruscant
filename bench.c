@@ -3,13 +3,13 @@
 #include "mpi.h"
 #include "kdtree.h"
 
-#define SIZE 2000000
+#define SIZE 4000000
 
 int main(int argc, char *argv[]) {
 
     int prov;
-    //MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &prov);
-    MPI_Init(NULL,NULL);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &prov);
+    //MPI_Init(NULL,NULL);
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -29,19 +29,21 @@ int main(int argc, char *argv[]) {
     int i;
     int n = SIZE;
 
-    double *x = (double *)malloc(n*sizeof(double));
-    double *y = (double *)malloc(n*sizeof(double));
-    double *z = (double *)malloc(n*sizeof(double));
+    FLOAT *x = (FLOAT *)malloc(n*sizeof(FLOAT));
+    FLOAT *y = (FLOAT *)malloc(n*sizeof(FLOAT));
+    FLOAT *z = (FLOAT *)malloc(n*sizeof(FLOAT));
 
     for(i=0; i<n; i++) {
-        x[i] = ((double) rand())/RAND_MAX;
-        y[i] = ((double) rand())/RAND_MAX;
-        z[i] = ((double) rand())/RAND_MAX;
+        x[i] = ((FLOAT) rand())/RAND_MAX;
+        y[i] = ((FLOAT) rand())/RAND_MAX;
+        z[i] = ((FLOAT) rand())/RAND_MAX;
     }
     
+    printf("Generated random data...\n");
     kdtree_t tree = tree_construct(n, x, y, z);
+    printf("Constructed k-d tree...\n");
 
-    double radius = 0.05;
+    FLOAT radius = 0.05;
     long long output = two_point_correlation(tree, x, y, z, n, radius,
                                                             MPI_COMM_WORLD);
     MPI_Finalize();

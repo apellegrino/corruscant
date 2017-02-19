@@ -8,8 +8,8 @@
 
 #define NUM_THREADS 12
 
-static inline void swapDouble(double * a, double * b) {
-	double temp;
+static inline void swapDouble(FLOAT * a, FLOAT * b) {
+	FLOAT temp;
 	temp = *a;
 	*a = *b;
 	*b = temp;
@@ -20,6 +20,10 @@ static inline void swapInt(int * a, int * b) {
 	temp = *a;
 	*a = *b;
 	*b = temp;
+}
+
+static inline int min(int a, int b) {
+    return a < b ? a : b;
 }
 
 /*
@@ -52,13 +56,13 @@ static inline double min3(double a, double b, double c) {
 }
 */
 
-static inline double norm2(double a, double b, double c) {
+static inline FLOAT norm2(FLOAT a, FLOAT b, FLOAT c) {
 	return a*a+b*b+c*c;
 }
 
-void quicksort(double *a, int *b, int left, int right) {
+void quicksort(FLOAT *a, int *b, int left, int right) {
 	int i, j;
-	double pivot;
+	FLOAT pivot;
 
 	if( right <= left ) return;
 
@@ -79,11 +83,11 @@ void quicksort(double *a, int *b, int left, int right) {
 	quicksort(a,b,j+1,right);
 }
 
-int * argsort(double *a, int size) {
+int * argsort(FLOAT *a, int size) {
 
 	//copy a to keep a unchanged
-	double *acpy = (double*) malloc(sizeof(double)*size);
-	memcpy(acpy, a, sizeof(double)*size);
+	FLOAT *acpy = (FLOAT*) malloc(sizeof(FLOAT)*size);
+	memcpy(acpy, a, sizeof(FLOAT)*size);
 
 	int *ind = (int*) malloc(sizeof(int)*size);
 
@@ -103,7 +107,7 @@ int * argsort(double *a, int size) {
 
 enum dim { X=0, Y=1, Z=2 };
 
-void partition(double * vals, int * args, double key, int left, int right, 
+void partition(FLOAT * vals, int * args, FLOAT key, int left, int right, 
 				int median, int med_index) {
 	int i, j, k, arg, size, split;
 	split = med_index - left;
@@ -128,7 +132,7 @@ void partition(double * vals, int * args, double key, int left, int right,
 	memcpy(args+left,args_new,size*sizeof(int));
 }
 
-node_t * build(double *x, double *y, double *z,
+node_t * build(FLOAT *x, FLOAT *y, FLOAT *z,
 					int *x_arg, int *y_arg, int *z_arg,
 					int left, int right, enum dim d) {
 	d=d%3;
@@ -210,20 +214,20 @@ void destroy(node_t *p) {
 
 /*  Query how many points in the tree with head p lie within radius r of point
     (x, y, z). Recursive. */
-int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
+int radius(node_t *p, enum dim d, FLOAT x, FLOAT y, FLOAT z, FLOAT r) {
 
 	d=d%3;
 
 	int i;
-	double rsq, dx, dy, dz;
-	double pos_upper, pos_lower, point;
+	FLOAT rsq, dx, dy, dz;
+	FLOAT pos_upper, pos_lower, point;
 
 	rsq = r*r;
 	dx = p->x - x;
 	dy = p->y - y;
 	dz = p->z - z;
 
-	double n = norm2(dx,dy,dz);
+	FLOAT n = norm2(dx,dy,dz);
 
 	if(p->lchild == NULL && p->rchild == NULL) {
 		return (n < rsq);
@@ -262,7 +266,7 @@ int radius(node_t *p, enum dim d, double x, double y, double z, double r) {
 	
 }
 
-kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
+kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[]) {
 
 	kdtree_t tree;
 	tree.size = size;
@@ -283,12 +287,12 @@ kdtree_t tree_construct(int size, double x[], double y[], double z[]) {
 
 typedef struct shared_args {
     kdtree_t tree;
-    double *x, *y, *z;
+    FLOAT *x, *y, *z;
     int n;
     int node_start;
     int node_stop;
     long long sum[NUM_THREADS];
-    double r;
+    FLOAT r;
 } shared_args_t;
 
 typedef struct thread_args {
@@ -338,8 +342,8 @@ void * twopoint_wrap(void *voidargs) {
 /*  Compute the sum of the number of data points in the tree which lie within
 radius r of each of the (x,y,z) points in the array. Result may easily exceed
 the size of a 32-bit int, so we return a long long. */
-long long two_point_correlation(kdtree_t tree, double x[], double y[],
-									double z[], int n, double r, MPI_Comm comm) {
+long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
+									FLOAT z[], int n, FLOAT r, MPI_Comm comm) {
 
     int i, rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -383,8 +387,10 @@ long long two_point_correlation(kdtree_t tree, double x[], double y[],
 
     t2 = MPI_Wtime();
 
-    printf("Time on process: %f sec\n", t2 - t1);
-    if(!rank) printf("Sum: %lld\n", gresult);
+    if(!rank) {
+        printf("Time on rank 0: %f sec\n", t2 - t1);
+        printf("Sum: %lld\n", gresult);
+    }
 
-	return result;
+	return gresult;
 }

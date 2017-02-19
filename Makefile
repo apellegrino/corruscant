@@ -16,11 +16,11 @@ threaded:
 bench: bench.o kdtree_thread.o
 	${CC} bench.o kdtree_thread.o -lpthread -o bench
 
-kdtree.o: kdtree_thread.c
-	${CC} -c kdtree_thread.c -O2
+kdtree_thread.o: kdtree_thread.c
+	${CC} -g -c kdtree_thread.c -O2
 
 bench.o: bench.c
-	${CC} -c bench.c -O2
+	${CC} -g -c bench.c -O2
 
 #%.o: %.c
 #	${CC} -c *.c -O2
