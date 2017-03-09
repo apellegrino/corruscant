@@ -1,4 +1,4 @@
-#define FLOAT float
+#define FLOAT double
 
 enum dim;
 
@@ -9,7 +9,8 @@ typedef struct kdtree {
 } kdtree_t;
 
 typedef struct node {
-	float x, y, z;
+	double x, y, z;
+	//double x,y,z;
 	struct node * lchild;
 	struct node * rchild;
 } node_t;

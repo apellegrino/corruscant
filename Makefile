@@ -26,4 +26,4 @@ bench.o: bench.c kdtree.h
 #	${CC} -c *.c -O2
 
 clean:
-	rm -f *.o *.so *.pyc
+	rm -f *.o *.so *.pyc bench
