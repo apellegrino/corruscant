@@ -5,7 +5,7 @@
 #include "mpi.h"
 #endif
 
-enum dim;
+enum dim { X=0, Y=1, Z=2 };
 
 typedef struct kdtree {
 	struct node* root;
