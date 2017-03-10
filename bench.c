@@ -3,17 +3,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "kdtree.h"
-#include "mpi.h"
 
-#define SIZE 4000000
+#ifndef MPI_H
+#define MPI_H
+#include "mpi.h"
+#endif
+
+#define SIZE 400000
 
 int main(int argc, char *argv[]) {
 
-    printf("argv %d\n", argv[1]);
+    printf("argv %s\n", argv[1]);
     int prov;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &prov);
 
-    printf("argv %d\n", argv[1]);
+    printf("argv %s\n", argv[1]);
     int num_threads = 12;
     //MPI_Init(NULL,NULL);
 

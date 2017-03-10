@@ -1,29 +1,23 @@
 CC= mpicc
-
-all: libkdtree
+BINS= bench libkdtree.so cosmology.so
+all: cosmology.so libkdtree.so bench
 .PHONY: cosmology libkdtree threaded clean
 
 # Cosmology lib does not provide much speed benefit so ignore it for now
-cosmology:
-	${CC} -shared -lm -o cosmology.so -fPIC cosmology.c
+cosmology.so: cosmology.c
+	${CC} -O2 -shared -fPIC $^ -o $@ -lm
 
-libkdtree:
-	${CC} -O2 -shared -o libkdtree.so -fPIC kdtree.c
+libkdtree.so: kdtree.c
+	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
 
-threaded:
-	${CC} -O2 -shared -lpthread -o libkdtree.so -fPIC kdtree_thread.c
+bench: bench.o kdtree.o
+	${CC} $^ -o $@ -lpthread
 
-bench: bench.o kdtree_thread.o
-	${CC} bench.o kdtree_thread.o -lpthread -o bench
+kdtest: kdtest.o kdtree.o
+	${CC} $^ -o $@
 
-kdtree_thread.o: kdtree_thread.c kdtree.h
-	${CC} -g -c kdtree_thread.c -O2
-
-bench.o: bench.c kdtree.h
-	${CC} -g -c bench.c -O2
-
-#%.o: %.c
-#	${CC} -c *.c -O2
+%.o: %.c
+	${CC} -g -c $^ -O2 -Wall
 
 clean:
-	rm -f *.o *.so *.pyc bench
+	rm -f *.o *.so *.pyc ${BINS}
