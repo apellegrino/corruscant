@@ -10,14 +10,14 @@ cosmology.so: cosmology.c
 libkdtree.so: kdtree.c
 	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
 
-bench: bench.o kdtree.o
+bench: bench.o kdtree.o kdtest.o
 	${CC} $^ -o $@ -lpthread
 
 kdtest: kdtest.o kdtree.o
 	${CC} $^ -o $@
 
 %.o: %.c
-	${CC} -g -c $^ -O2 -Wall
+	${CC} -g -O2 -c -Wall $^
 
 clean:
 	rm -f *.o *.so *.pyc ${BINS}

@@ -1,5 +1,7 @@
 #define FLOAT double
 
+#define KDTREE_H
+
 #ifndef MPI_H
 #define MPI_H
 #include "mpi.h"
@@ -26,9 +28,10 @@ void partition(FLOAT *, int *, FLOAT, int, int, int, int);
 node_t * build(FLOAT *, FLOAT *, FLOAT *,
 					int *, int *, int *,
 					int, int, enum dim);
-void verify(node_t *, enum dim);
+
+//void verify(node_t *, enum dim);
 void destroy(node_t *);
 int radius(node_t *, enum dim, FLOAT, FLOAT, FLOAT, FLOAT);
 kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
-long long two_point_correlation(kdtree_t tree, double [], double [],
-									double [], int, double, int, MPI_Comm);
+long long two_point_correlation(kdtree_t tree, FLOAT [], FLOAT [],
+									FLOAT [], int, FLOAT, int, MPI_Comm);

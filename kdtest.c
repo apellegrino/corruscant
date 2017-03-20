@@ -7,7 +7,6 @@ int nodesize(void) {
 
 void verify(node_t *root, enum dim d) {
 	d=d%3;
-	node_t *p = root;
     char *errmsg = "node %p should not be %s child of %p\n";
 
 	if (root->lchild != NULL) {
@@ -59,10 +58,6 @@ void verify(node_t *root, enum dim d) {
 }
 
 int count(node_t *p) {
-    if(p->rchild == NULL) return (p->lchild == NULL);
-    return (count(p->lchild) + count(p->rchild));
-}
-
-int main(void) {
-    printf("A node is %d bytes.\n", nodesize());
+    if(p->lchild == NULL) return (p->rchild != NULL) + 1;
+    return (count(p->lchild) + count(p->rchild) + 1);
 }

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include "kdtree.h"
 
+#include "kdtest.h"
+
 #ifndef MPI_H
 #define MPI_H
 #include "mpi.h"
@@ -56,6 +58,11 @@ int main(int argc, char *argv[]) {
     FLOAT radius = 0.05;
     long long output = two_point_correlation(tree, x, y, z, n, radius, num_threads,
                                                             MPI_COMM_WORLD);
+
+    printf("A node is %d bytes.\n", nodesize());
+    verify((node_t *) tree.root,0);
+    printf("Done verifying\n");
+    printf("The tree has %d nodes.\n", count((node_t *) tree.root));
     MPI_Finalize();
     return 0;
 }
