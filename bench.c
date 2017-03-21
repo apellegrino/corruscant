@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     FLOAT *y = (FLOAT *)malloc(n*sizeof(FLOAT));
     FLOAT *z = (FLOAT *)malloc(n*sizeof(FLOAT));
 
-    srand(0);
+    srand(2);
 
     for(i=0; i<n; i++) {
         x[i] = ((FLOAT) rand())/RAND_MAX;
