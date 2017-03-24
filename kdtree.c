@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-//#include <float.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -220,21 +219,21 @@ int radius(node_t *p, enum dim d, FLOAT x, FLOAT y, FLOAT z, FLOAT r)
     } else { /* two children */
 
         switch(d) {
-            case X:
-                pos_upper = x+r;
-                pos_lower = x-r;
-                point = p->x;
-                break;
-            case Y:
-                pos_upper = y+r;
-                pos_lower = y-r;
-                point = p->y;
-                break;
-            case Z:
-                pos_upper = z+r;
-                pos_lower = z-r;
-                point = p->z;
-                break;
+        case X:
+            pos_upper = x+r;
+            pos_lower = x-r;
+            point = p->x;
+            break;
+        case Y:
+            pos_upper = y+r;
+            pos_lower = y-r;
+            point = p->y;
+            break;
+        case Z:
+            pos_upper = z+r;
+            pos_lower = z-r;
+            point = p->z;
+            break;
         }
         if (pos_upper < point) {
             i=radius(p->lchild,d+1,x,y,z,r);
@@ -255,17 +254,16 @@ kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 
     kdtree_t tree;
     tree.size = size;
-    tree.x = x;
-    tree.y = y;
-    tree.z = z;
+    tree.x = x; tree.y = y; tree.z = z;
 
     /* Argsort the inputs */
     int *x_arg, *y_arg, *z_arg;
-    x_arg = argsort(x, size);
-    y_arg = argsort(y, size);
-    z_arg = argsort(z, size);
+
+    x_arg = argsort(x, size); y_arg = argsort(y, size); z_arg = argsort(z, size);
 
     tree.root = build(x,y,z,x_arg,y_arg,z_arg,0,size-1,X);
+
+    free(x_arg); free(y_arg); free(z_arg);
 
     return tree;
 }
@@ -277,7 +275,6 @@ typedef struct shared_args {
     int node_start;
     int node_stop;
     int num_threads;
-    //long long sum[NUM_THREADS];
     long long *sum;
     FLOAT r;
 } shared_args_t;

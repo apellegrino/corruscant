@@ -27,11 +27,11 @@ node._fields_ = [
 
 class kdtree(Structure):
     _fields_ = [
-    	("root",POINTER(node)),
-    	("size",c_int),
-    	("x",POINTER(c_double)),
-    	("y",POINTER(c_double)),
-    	("z",POINTER(c_double)),
+        ("root",POINTER(node)),
+        ("size",c_int),
+        ("x",POINTER(c_double)),
+        ("y",POINTER(c_double)),
+        ("z",POINTER(c_double)),
         ]
 
 kdlib = CDLL(os.path.abspath("libkdtree.so"))
@@ -43,84 +43,84 @@ else:
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
-    							c_int,
-    							POINTER(c_double),
-    							POINTER(c_double),
-    							POINTER(c_double),
+                                c_int,
+                                POINTER(c_double),
+                                POINTER(c_double),
+                                POINTER(c_double),
                                 ]
 '''
 kdlib.landy_szalay.restype = c_double
 kdlib.landy_szalay.argtypes = [
-    						kdtree,
-    						kdtree,
-    						c_double ]
+                            kdtree,
+                            kdtree,
+                            c_double ]
 '''
 kdlib.two_point_correlation.restype = c_longlong
 kdlib.two_point_correlation.argtypes = [
-    						kdtree,
-    						POINTER(c_double),
-    						POINTER(c_double),
-    						POINTER(c_double),
-    						c_int,
-    						c_double,
+                            kdtree,
+                            POINTER(c_double),
+                            POINTER(c_double),
+                            POINTER(c_double),
+                            c_int,
+                            c_double,
                             MPI_Comm,
                             ]
 
 class twopoint_constructor:
     def __init__(self, X_data, X_random):
-    	try:
-    		self.X_data = np.array(X_data)
-    		self.X_random = np.array(X_random)
-    	except:
-    		raise
+        try:
+            self.X_data = np.array(X_data)
+            self.X_random = np.array(X_random)
+        except:
+            raise
 
     def _unpack(self,x,y,z):
-    	return (x,y,z)
+        return (x,y,z)
 
     def construct(self):
-    	data_x, data_y, data_z = self._unpack(*self.X_data)
+        data_x, data_y, data_z = self._unpack(*self.X_data)
 
-    	self.data_tree = kdlib.tree_construct(c_int(self.X_data.shape[1]),
-    					data_x.ctypes.data_as(POINTER(c_double)),
-    					data_y.ctypes.data_as(POINTER(c_double)),
-    					data_z.ctypes.data_as(POINTER(c_double)) )
-    	print cast(self.data_tree.y, POINTER(c_double)).contents
-    	rand_x, rand_y, rand_z = self._unpack(*self.X_random)
+        self.data_tree = kdlib.tree_construct(c_int(self.X_data.shape[1]),
+                        data_x.ctypes.data_as(POINTER(c_double)),
+                        data_y.ctypes.data_as(POINTER(c_double)),
+                        data_z.ctypes.data_as(POINTER(c_double)) )
+        print cast(self.data_tree.y, POINTER(c_double)).contents
+        rand_x, rand_y, rand_z = self._unpack(*self.X_random)
 
-    	self.rand_tree = kdlib.tree_construct(c_int(self.X_random.shape[1]),
-    					rand_x.ctypes.data_as(POINTER(c_double)),
-    					rand_y.ctypes.data_as(POINTER(c_double)),
-    					rand_z.ctypes.data_as(POINTER(c_double)) )
+        self.rand_tree = kdlib.tree_construct(c_int(self.X_random.shape[1]),
+                        rand_x.ctypes.data_as(POINTER(c_double)),
+                        rand_y.ctypes.data_as(POINTER(c_double)),
+                        rand_z.ctypes.data_as(POINTER(c_double)) )
 
     def landy_szalay(self, radii):
-    	data_x, data_y, data_z = self._unpack(*self.X_data)
-    	rand_x, rand_y, rand_z = self._unpack(*self.X_random)
-    	nr = self.X_random.shape[1]
-    	nd = self.X_data.shape[1]
-    	f = float(nr)/nd
+        data_x, data_y, data_z = self._unpack(*self.X_data)
+        rand_x, rand_y, rand_z = self._unpack(*self.X_random)
+        nr = self.X_random.shape[1]
+        nd = self.X_data.shape[1]
+        f = float(nr)/nd
 
-    	out = []
+        out = []
 
         comm_ptr = MPI._addressof(MPI.COMM_WORLD)
         comm_val = MPI_Comm.from_address(comm_ptr)
 
-    	for r in radii:
-    		dd = kdlib.two_point_correlation(self.data_tree,
-    								data_x.ctypes.data_as(POINTER(c_double)),
-    								data_y.ctypes.data_as(POINTER(c_double)),
-    								data_z.ctypes.data_as(POINTER(c_double)),
-    								nd,r,comm_val)
-    		dr = kdlib.two_point_correlation(self.data_tree,
-    								rand_x.ctypes.data_as(POINTER(c_double)),
-    								rand_y.ctypes.data_as(POINTER(c_double)),
-    								rand_z.ctypes.data_as(POINTER(c_double)),
-    								nr,r,comm_val)
-    		rr = kdlib.two_point_correlation(self.rand_tree,
-    								rand_x.ctypes.data_as(POINTER(c_double)),
-    								rand_y.ctypes.data_as(POINTER(c_double)),
-    								rand_z.ctypes.data_as(POINTER(c_double)),
-    								nr,r,comm_val)
+        for r in radii:
+            dd = kdlib.two_point_correlation(self.data_tree,
+                                    data_x.ctypes.data_as(POINTER(c_double)),
+                                    data_y.ctypes.data_as(POINTER(c_double)),
+                                    data_z.ctypes.data_as(POINTER(c_double)),
+                                    nd,r,comm_val)
+            dr = kdlib.two_point_correlation(self.data_tree,
+                                    rand_x.ctypes.data_as(POINTER(c_double)),
+                                    rand_y.ctypes.data_as(POINTER(c_double)),
+                                    rand_z.ctypes.data_as(POINTER(c_double)),
+                                    nr,r,comm_val)
+            rr = kdlib.two_point_correlation(self.rand_tree,
+                                    rand_x.ctypes.data_as(POINTER(c_double)),
+                                    rand_y.ctypes.data_as(POINTER(c_double)),
+                                    rand_z.ctypes.data_as(POINTER(c_double)),
+                                    nr,r,comm_val)
 
-    		out.append((f*f*dd-2*f*dr+rr)/float(rr))
+            out.append((f*f*dd-2*f*dr+rr)/float(rr))
 
-    	return out
+        return out

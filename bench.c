@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &prov);
 
     printf("argv %s\n", argv[1]);
-    int num_threads = 12;
+    int num_threads = 4;
     //MPI_Init(NULL,NULL);
 
     int rank, size;
