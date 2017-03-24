@@ -123,15 +123,15 @@ node_t * build(FLOAT *x, FLOAT *y, FLOAT *z,int *x_arg, int *y_arg, int *z_arg,
 
     /* Find index of the median in appropriate position list */
     switch(d) {
-        case X:
-            med_arg = x_arg[med];
-            break;
-        case Y:
-            med_arg = y_arg[med];
-            break;
-        case Z:
-            med_arg = z_arg[med];
-            break;
+    case X:
+        med_arg = x_arg[med];
+        break;
+    case Y:
+        med_arg = y_arg[med];
+        break;
+    case Z:
+        med_arg = z_arg[med];
+        break;
     }
 
     /* this node is the median */
