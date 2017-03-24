@@ -7,24 +7,24 @@ int nodesize(void) {
 
 void verify(node_t *root, enum dim d) {
 	d=d%3;
-    char *errmsg = "node %p should not be %s child of %p\n";
+    char *errmsg = "node %p should not be %s child of %p (%lf, %lf) \n";
 
 	if (root->lchild != NULL) {
 		switch(d) {
         case X:
-            if(root->x <= root->lchild->x) {
+            if(root->x < root->lchild->x) {
                 fprintf(stderr,errmsg,
                 (void*)root->lchild,"left",(void*)root);
             }
             break;
         case Y:
-            if(root->y <= root->lchild->y) {
+            if(root->y < root->lchild->y) {
                 fprintf(stderr,errmsg,
                 (void*)root->lchild,"left",(void*)root);
             }
             break;
         case Z:
-            if(root->z <= root->lchild->z) {
+            if(root->z < root->lchild->z) {
                 fprintf(stderr,errmsg,
                 (void*)root->lchild,"left",(void*)root);
             }
@@ -35,21 +35,21 @@ void verify(node_t *root, enum dim d) {
 	if (root->rchild != NULL) {
 		switch(d) {
         case X:
-            if(root->x >= root->rchild->x) {
+            if(root->x > root->rchild->x) {
                 fprintf(stderr,errmsg,
-                (void*)root->lchild,"right",(void*)root);
+                (void*)root->lchild,"left",(void*)root);
             }
             break;
         case Y:
-            if(root->y >= root->rchild->y) {
+            if(root->y > root->rchild->y) {
                 fprintf(stderr,errmsg,
-                (void*)root->lchild,"right",(void*)root);
+                (void*)root->lchild,"left",(void*)root);
             }
             break;
         case Z:
-            if(root->z >= root->rchild->z) {
+            if(root->z > root->rchild->z) {
                 fprintf(stderr,errmsg,
-                (void*)root->lchild,"right",(void*)root);
+                (void*)root->lchild,"left",(void*)root);
             }
             break;
 		}
@@ -58,6 +58,6 @@ void verify(node_t *root, enum dim d) {
 }
 
 int count(node_t *p) {
-    if(p->lchild == NULL) return (p->rchild != NULL) + 1;
+    if(p->rchild == NULL) return (p->lchild != NULL) + 1;
     return (count(p->lchild) + count(p->rchild) + 1);
 }

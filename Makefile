@@ -7,13 +7,13 @@ all: cosmology.so libkdtree.so bench
 cosmology.so: cosmology.c
 	${CC} -O2 -shared -fPIC $^ -o $@ -lm
 
-libkdtree.so: kdtree.c
+libkdtree.so: kdtree_build.c kdtree_query.c
 	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
 
-bench: bench.o kdtree.o kdtest.o
+bench: bench.o kdtree_build.o kdtree_query.o kdtest.o
 	${CC} $^ -o $@ -lpthread
 
-kdtest: kdtest.o kdtree.o
+kdtest: kdtest.o kdtree_build.o kdtree_query.o
 	${CC} $^ -o $@
 
 %.o: %.c

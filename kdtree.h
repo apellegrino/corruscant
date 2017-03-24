@@ -12,7 +12,6 @@ enum dim { X=0, Y=1, Z=2 };
 typedef struct kdtree {
     struct node* root;
     int size;
-    FLOAT *x, *y, *z;
 } kdtree_t;
 
 typedef struct node {
@@ -21,17 +20,7 @@ typedef struct node {
     struct node * rchild;
 } node_t;
 
-void quicksort(FLOAT *, int *, int, int);
-int * argsort(FLOAT *, int);
-
-void partition(FLOAT *, int *, FLOAT, int, int, int, int);
-node_t * build(FLOAT *, FLOAT *, FLOAT *,
-                    int *, int *, int *,
-                    int, int, enum dim);
-
-//void verify(node_t *, enum dim);
-void destroy(node_t *);
-int radius(node_t *, enum dim, FLOAT, FLOAT, FLOAT, FLOAT);
 kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
+
 long long two_point_correlation(kdtree_t tree, FLOAT [], FLOAT [],
                                     FLOAT [], int, FLOAT, int, MPI_Comm);
