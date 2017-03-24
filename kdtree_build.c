@@ -28,7 +28,7 @@ inline void swapInt(int * a, int * b)
     *b = temp;
 }
 
-inline int min(int a, int b)
+static inline int min(int a, int b)
 {
     return a < b ? a : b;
 }
@@ -215,7 +215,7 @@ kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
     tree.size = size;
     int msize = pow2ceil(size)+1;
 
-    tree_data = (node_t *) malloc( (pow2ceil(size)+1)*sizeof(node_t) );
+    tree_data = (node_t *) malloc( msize*sizeof(node_t) );
     tree.root = tree_data + 1;
 
     _x_build = x; _y_build = y; _z_build = z;

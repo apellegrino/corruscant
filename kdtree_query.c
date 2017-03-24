@@ -9,7 +9,7 @@
 
 static double *_x_query, *_y_query, *_z_query;
 
-inline int min(int a, int b)
+static inline int min(int a, int b)
 {
     return a < b ? a : b;
 }
