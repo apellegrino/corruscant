@@ -8,6 +8,7 @@
 #endif
 
 static double *_x_query, *_y_query, *_z_query;
+static node_t * tree_data;
 
 static inline int min(int a, int b)
 {
@@ -21,65 +22,81 @@ static inline FLOAT norm2(FLOAT a, FLOAT b, FLOAT c)
 
 void destroy(node_t *p)
 {
-    if(p->lchild != NULL) destroy(p->lchild);
-    if(p->rchild != NULL) destroy(p->rchild);
     free(p);
+}
+
+static inline int left_child(int p)
+{
+    return 2 * p;
+}
+
+static inline int has_lchild(int p)
+{
+    return (tree_data+p)->flags & HAS_LCHILD;
+}
+
+static inline int right_child(int p)
+{
+    return 2 * p + 1;
+}
+
+static inline int has_rchild(int p)
+{
+    return (tree_data+p)->flags & HAS_RCHILD;
 }
 
 /*
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.
  */
-static int radius(node_t *p, enum dim d, int index, FLOAT r)
+static int radius(int pi, enum dim d, int qi, FLOAT r)
 {
-
     d=d%3;
 
     int i;
     double x, y, z;
+    node_t p = *(tree_data+pi);
 
-    x = _x_query[index]; y = _y_query[index]; z = _z_query[index];
+    x = _x_query[qi]; y = _y_query[qi]; z = _z_query[qi];
 
     FLOAT rsq, dx, dy, dz;
     FLOAT pos_upper, pos_lower, point;
 
     rsq = r*r;
-    dx = p->x - x; dy = p->y - y; dz = p->z - z;
+    dx = p.x - x; dy = p.y - y; dz = p.z - z;
 
     FLOAT n = norm2(dx,dy,dz);
-
-    if(p->lchild == NULL && p->rchild == NULL) { /* no children */
+    if(p.flags == 0) { /* no children */
         return (n < rsq);
-    } else if (p->rchild == 0) { /* one child */
-        return (n < rsq) + radius(p->lchild,d+1,index,r);
+    } else if (p.flags == 1) { /* one child */
+        return (n < rsq) + radius(left_child(pi),d+1,qi,r);
     } else { /* two children */
-
         switch(d) {
         case X:
             pos_upper = x+r;
             pos_lower = x-r;
-            point = p->x;
+            point = p.x;
             break;
         case Y:
             pos_upper = y+r;
             pos_lower = y-r;
-            point = p->y;
+            point = p.y;
             break;
         case Z:
             pos_upper = z+r;
             pos_lower = z-r;
-            point = p->z;
+            point = p.z;
             break;
         }
 
         if (pos_upper < point) {
-            i=radius(p->lchild,d+1,index,r);
+            i=radius(left_child(pi),d+1,qi,r);
         } else if (pos_lower > point) {
-            i=radius(p->rchild,d+1,index,r);
+            i=radius(right_child(pi),d+1,qi,r);
         } else {
             i = (n < rsq) +
-                radius(p->lchild,d+1,index,r) +
-                radius(p->rchild,d+1,index,r);
+                radius(left_child(pi),d+1,qi,r) +
+                radius(right_child(pi),d+1,qi,r);
         }
         return i;
     }
@@ -87,8 +104,6 @@ static int radius(node_t *p, enum dim d, int index, FLOAT r)
 }
 
 typedef struct shared_args {
-    kdtree_t tree;
-    FLOAT *x, *y, *z;
     int n;
     int node_start;
     int node_stop;
@@ -136,7 +151,7 @@ void * twopoint_wrap(void *voidargs)
     args->sum[rank] = 0;
 
     for(i=start; i<stop; i++) {
-        args->sum[rank] += radius(args->tree.root, 0, i, args->r);
+        args->sum[rank] += radius(1, 0, i, args->r);
     }
 
     return NULL;
@@ -147,17 +162,18 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
+long long two_point_correlation(node_t * root, FLOAT x[], FLOAT y[],
                 FLOAT z[], int n, FLOAT r, int num_threads, MPI_Comm comm)
 {
     int i, rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    tree_data = root;
+
     _x_query = x; _y_query = y; _z_query = z;
 
     shared_args_t ss;
-    ss.tree = tree;
     ss.n = n;
     ss.r = r;
     ss.num_threads = num_threads;
@@ -194,7 +210,6 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
 
     if(!rank) {
         printf("Time on rank 0: %f sec\n", t2 - t1);
-        printf("Sum: %lld\n", result);
     }
 
     return result;

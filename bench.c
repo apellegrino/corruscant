@@ -54,17 +54,17 @@ int main(int argc, char *argv[]) {
     }
     
     printf("Generated random data...\n");
-    kdtree_t tree = tree_construct(n, x, y, z);
+    node_t * root = tree_construct(n, x, y, z);
     printf("Constructed k-d tree...\n");
 
     FLOAT radius = 0.05;
-    long long output = two_point_correlation(tree, x, y, z, n, radius, num_threads,
+    long long output = two_point_correlation(root, x, y, z, n, radius, num_threads,
                                                             MPI_COMM_WORLD);
-
+    printf("Sum: %lld\n", output);
     printf("A node is %d bytes.\n", nodesize());
-    verify((node_t *) tree.root,0);
+    verify_main(root,0);
     printf("Done verifying\n");
-    printf("The tree has %d nodes.\n", count((node_t *) tree.root));
+    printf("The tree has %d nodes.\n", count(root));
     MPI_Finalize();
     return 0;
 }

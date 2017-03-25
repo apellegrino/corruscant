@@ -7,6 +7,9 @@
 #include "mpi.h"
 #endif
 
+#define HAS_LCHILD 1
+#define HAS_RCHILD 2
+
 enum dim { X=0, Y=1, Z=2 };
 
 typedef struct kdtree {
@@ -16,11 +19,10 @@ typedef struct kdtree {
 
 typedef struct node {
     double x, y, z;
-    struct node * lchild;
-    struct node * rchild;
+    unsigned short flags;
 } node_t;
 
-kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
+node_t * tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
 
-long long two_point_correlation(kdtree_t tree, FLOAT [], FLOAT [],
+long long two_point_correlation(node_t *, FLOAT [], FLOAT [],
                                     FLOAT [], int, FLOAT, int, MPI_Comm);

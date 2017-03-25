@@ -138,9 +138,7 @@ void build(int ind, int left, int right, enum dim d)
 
     /* this node is the median */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
-
-    parent->lchild = NULL;
-    parent->rchild = NULL;
+    parent->flags = 0;
 
     /* 
      * Base cases: subtree of size 1, 2 or 3
@@ -150,14 +148,12 @@ void build(int ind, int left, int right, enum dim d)
     case 0: /* array length 1, no children */
         return;
     case 1: /* array length 2, one child */
-        parent->lchild = tree_data + 2 * ind;
-
+        parent->flags |= HAS_LCHILD;
         build(2 * ind, left,left,d);
         return;
     case 2: /* array length 3, two children */
-        parent->lchild = tree_data + 2 * ind;
-        parent->rchild = tree_data + 2 * ind + 1;
-
+        parent->flags |= HAS_LCHILD;
+        parent->flags |= HAS_RCHILD;
         build(2 * ind, left,left,d);
         build(2 * ind + 1, right,right,d);
         return;
@@ -183,8 +179,8 @@ void build(int ind, int left, int right, enum dim d)
         break;
     }
 
-    parent->lchild = tree_data + 2 * ind;
-    parent->rchild = tree_data + 2 * ind + 1;
+    parent->flags |= HAS_LCHILD;
+    parent->flags |= HAS_RCHILD;
 
     build(2 * ind, left,med-1,d+1);
     build(2 * ind + 1, med+1,right,d+1);
@@ -208,15 +204,14 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
+node_t * tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 {
 
-    kdtree_t tree;
-    tree.size = size;
+    node_t * root;
     int msize = pow2ceil(size)+1;
 
-    tree_data = (node_t *) malloc( msize*sizeof(node_t) );
-    tree.root = tree_data + 1;
+    tree_data = (node_t *) calloc( msize, sizeof(node_t) );
+    root = tree_data + 1;
 
     _x_build = x; _y_build = y; _z_build = z;
 
@@ -228,6 +223,6 @@ kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 
     free(x_arg); free(y_arg); free(z_arg);
 
-    return tree;
+    return root;
 }
 
