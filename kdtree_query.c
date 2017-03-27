@@ -52,7 +52,6 @@ static inline int has_rchild(int p)
 static int radius(int pi, enum dim d, int qi, FLOAT r)
 {
     d=d%3;
-
     int i;
     double x, y, z;
     node_t p = *(tree_data+pi);
@@ -66,9 +65,9 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
     dx = p.x - x; dy = p.y - y; dz = p.z - z;
 
     FLOAT n = norm2(dx,dy,dz);
-    if(p.flags == 0) { /* no children */
+    if( !(p.flags & HAS_LCHILD) ) { /* no children */
         return (n < rsq);
-    } else if (p.flags == 1) { /* one child */
+    } else if ( !(p.flags & HAS_RCHILD) ) { /* one child */
         return (n < rsq) + radius(left_child(pi),d+1,qi,r);
     } else { /* two children */
         switch(d) {
@@ -169,7 +168,7 @@ long long two_point_correlation(node_t * root, FLOAT x[], FLOAT y[],
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    tree_data = root;
+    tree_data = root - 1;
 
     _x_query = x; _y_query = y; _z_query = z;
 

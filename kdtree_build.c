@@ -12,7 +12,7 @@ static int *x_arg, *y_arg, *z_arg;
 static node_t * tree_data;
 
 
-inline void swapCustomFloat(FLOAT * a, FLOAT * b)
+static inline void swapCustomFloat(FLOAT * a, FLOAT * b)
 {
     FLOAT temp;
     temp = *a;
@@ -20,7 +20,7 @@ inline void swapCustomFloat(FLOAT * a, FLOAT * b)
     *b = temp;
 }
 
-inline void swapInt(int * a, int * b)
+static inline void swapInt(int * a, int * b)
 {
     int temp;
     temp = *a;
@@ -120,7 +120,7 @@ void build(int ind, int left, int right, enum dim d)
     x = _x_build; y = _y_build; z = _z_build;
 
     int med, med_arg;
-    /* Median index of the sub-array. Rounds up for odd sized lists */
+    /* Median index of the sub-array. Rounds up for even sized lists */
     med = (left+right+1)/2;
 
     /* Find index of the median in appropriate position list */
@@ -181,7 +181,6 @@ void build(int ind, int left, int right, enum dim d)
 
     parent->flags |= HAS_LCHILD;
     parent->flags |= HAS_RCHILD;
-
     build(2 * ind, left,med-1,d+1);
     build(2 * ind + 1, med+1,right,d+1);
 
@@ -207,11 +206,9 @@ static int pow2ceil(int x)
 node_t * tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 {
 
-    node_t * root;
     int msize = pow2ceil(size)+1;
 
     tree_data = (node_t *) calloc( msize, sizeof(node_t) );
-    root = tree_data + 1;
 
     _x_build = x; _y_build = y; _z_build = z;
 
@@ -223,6 +220,6 @@ node_t * tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 
     free(x_arg); free(y_arg); free(z_arg);
 
-    return root;
+    return tree_data + 1;
 }
 
