@@ -84,7 +84,8 @@ class twopoint_constructor:
                         data_x.ctypes.data_as(POINTER(c_double)),
                         data_y.ctypes.data_as(POINTER(c_double)),
                         data_z.ctypes.data_as(POINTER(c_double)) )
-        print cast(self.data_tree.y, POINTER(c_double)).contents
+        # accessing the ctypes data:
+        # print cast(self.data_tree.y, POINTER(c_double)).contents
         rand_x, rand_y, rand_z = self._unpack(*self.X_random)
 
         self.rand_tree = kdlib.tree_construct(c_int(self.X_random.shape[1]),

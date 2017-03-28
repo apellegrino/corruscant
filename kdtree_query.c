@@ -25,26 +25,6 @@ void destroy(node_t *p)
     free(p);
 }
 
-static inline int left_child(int p)
-{
-    return 2 * p;
-}
-
-static inline int has_lchild(int p)
-{
-    return (tree_data+p)->flags & HAS_LCHILD;
-}
-
-static inline int right_child(int p)
-{
-    return 2 * p + 1;
-}
-
-static inline int has_rchild(int p)
-{
-    return (tree_data+p)->flags & HAS_RCHILD;
-}
-
 /*
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.

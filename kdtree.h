@@ -22,6 +22,9 @@ typedef struct node {
     unsigned short flags;
 } node_t;
 
+int left_child(int);
+int right_child(int);
+
 node_t * tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
 
 long long two_point_correlation(node_t *, FLOAT [], FLOAT [],

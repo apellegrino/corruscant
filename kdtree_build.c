@@ -110,6 +110,16 @@ static void partition(FLOAT * vals, int * args, FLOAT key, int left, int right,
     memcpy(args+left,args_new,size*sizeof(int));
 }
 
+inline int left_child(int p)
+{
+    return 2*p;
+}
+
+inline int right_child(int p)
+{
+    return 2*p+1;
+}
+
 void build(int ind, int left, int right, enum dim d)
 {
     d=d%3;
@@ -149,13 +159,13 @@ void build(int ind, int left, int right, enum dim d)
         return;
     case 1: /* array length 2, one child */
         parent->flags |= HAS_LCHILD;
-        build(2 * ind, left,left,d);
+        build(left_child(ind), left,left,d);
         return;
     case 2: /* array length 3, two children */
         parent->flags |= HAS_LCHILD;
         parent->flags |= HAS_RCHILD;
-        build(2 * ind, left,left,d);
-        build(2 * ind + 1, right,right,d);
+        build(left_child(ind), left,left,d);
+        build(right_child(ind), right,right,d);
         return;
     }
 
@@ -181,8 +191,8 @@ void build(int ind, int left, int right, enum dim d)
 
     parent->flags |= HAS_LCHILD;
     parent->flags |= HAS_RCHILD;
-    build(2 * ind, left,med-1,d+1);
-    build(2 * ind + 1, med+1,right,d+1);
+    build(left_child(ind), left,med-1,d+1);
+    build(right_child(ind), med+1,right,d+1);
 
     return;
 }
