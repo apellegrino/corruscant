@@ -141,14 +141,14 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long two_point_correlation(node_t * root, FLOAT x[], FLOAT y[],
+long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
                 FLOAT z[], int n, FLOAT r, int num_threads, MPI_Comm comm)
 {
     int i, rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    tree_data = root - 1;
+    tree_data = tree.node_data;
 
     _x_query = x; _y_query = y; _z_query = z;
 

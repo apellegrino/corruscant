@@ -1,83 +1,70 @@
 #include "kdtree.h"
 #include <stdio.h>
 
-static node_t * tree_data = NULL;
-
 int nodesize(void) {
     return sizeof(node_t);
 }
 
-static inline node_t * left_child_n(node_t * p)
-{
-    int i = p - tree_data;
-    return tree_data + 2 * i;
-}
-
-static inline node_t * right_child_n(node_t * p)
-{
-    int i = p - tree_data;
-    return tree_data + 2 * i + 1;
-}
-
-void verify(node_t *root, enum dim d) {
+static void verify(node_t * data, int index, enum dim d) {
 	d=d%3;
+
+    node_t *parent, *lc, *rc;
     char *errmsg = "node %p should not be %s child of %p (%lf, %lf) \n";
+    int comp;
 
-	if (root->flags & HAS_LCHILD) {
+    parent = data + index;
+
+	if (parent->flags & HAS_LCHILD) {
+        lc = data + left_child(index);
 		switch(d) {
         case X:
-            if(root->x < left_child_n(root)->x) {
-                fprintf(stderr,errmsg,
-                (void*)left_child_n(root),"left",(void*)root);
-            }
+            comp = parent->x < lc->x;
             break;
         case Y:
-            if(root->y < left_child_n(root)->y) {
-                fprintf(stderr,errmsg,
-                (void*)left_child_n(root),"left",(void*)root);
-            }
+            comp = parent->y < lc->y;
             break;
         case Z:
-            if(root->z < left_child_n(root)->z) {
-                fprintf(stderr,errmsg,
-                (void*)left_child_n(root),"left",(void*)root);
-            }
+            comp = parent->z < lc->z;
             break;
 		}
-		verify(left_child_n(root),d+1);
+        if(comp) {
+            fprintf(stderr,errmsg,left_child(index),"left",index);
+        }
+		verify(data,left_child(index),d+1);
 	}
-	if (root->flags & HAS_RCHILD) {
+	if (parent->flags & HAS_RCHILD) {
+        rc = data + right_child(index);
 		switch(d) {
         case X:
-            if(root->x > right_child_n(root)->x) {
-                fprintf(stderr,errmsg,
-                (void*)right_child_n(root),"right",(void*)root);
-            }
+            comp = parent->x > rc->x;
             break;
         case Y:
-            if(root->y > right_child_n(root)->y) {
-                fprintf(stderr,errmsg,
-                (void*)right_child_n(root),"right",(void*)root);
-            }
+            comp = parent->y > rc->y;
             break;
         case Z:
-            if(root->z > right_child_n(root)->z) {
-                fprintf(stderr,errmsg,
-                (void*)right_child_n(root),"right",(void*)root);
-            }
+            comp = parent->z > rc->z;
             break;
 		}
-		verify(right_child_n(root),d+1);
-    }
+        if(comp) {
+            fprintf(stderr,errmsg,right_child(index),"right",index);
+        }
+		verify(data,right_child(index),d+1);
+	}
 }
 
-void verify_main(node_t *root, enum dim d)
+void verify_main(kdtree_t t, enum dim d)
 {
-    tree_data = root - 1;
-    verify(root, d);
+    verify(t.node_data,1,d);
 }
 
-int count(node_t *p) {
+static int count(kdtree_t t, int index)
+{
+    node_t * p = t.node_data + index;
     if(!(p->flags & HAS_RCHILD)) return (p->flags & HAS_LCHILD) + 1;
-    return (count(left_child_n(p)) + count(right_child_n(p)) + 1);
+    return (count(t, left_child(index)) + count(t, right_child(index)) + 1);
+}
+
+int count_main(kdtree_t t)
+{
+    return count(t,1);
 }

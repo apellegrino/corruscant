@@ -7,10 +7,7 @@
 #include "kdtree.h"
 #endif
 
-static double *_x_build, *_y_build, *_z_build;
 static int *x_arg, *y_arg, *z_arg;
-static node_t * tree_data;
-
 
 static inline void swapCustomFloat(FLOAT * a, FLOAT * b)
 {
@@ -120,16 +117,17 @@ inline int right_child(int p)
     return 2*p+1;
 }
 
-void build(int ind, int left, int right, enum dim d)
+void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 {
     d=d%3;
     double *x, *y, *z;
-
-    node_t * parent = tree_data + ind;
-
-    x = _x_build; y = _y_build; z = _z_build;
-
     int med, med_arg;
+
+    node_t * parent = tree.node_data + ind;
+    parent->flags = 0;
+
+    x = tree.x_data; y = tree.y_data; z = tree.z_data;
+
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = (left+right+1)/2;
 
@@ -148,7 +146,6 @@ void build(int ind, int left, int right, enum dim d)
 
     /* this node is the median */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
-    parent->flags = 0;
 
     /* 
      * Base cases: subtree of size 1, 2 or 3
@@ -159,13 +156,13 @@ void build(int ind, int left, int right, enum dim d)
         return;
     case 1: /* array length 2, one child */
         parent->flags |= HAS_LCHILD;
-        build(left_child(ind), left,left,d);
+        build(tree, left_child(ind), left,left,d);
         return;
     case 2: /* array length 3, two children */
         parent->flags |= HAS_LCHILD;
         parent->flags |= HAS_RCHILD;
-        build(left_child(ind), left,left,d);
-        build(right_child(ind), right,right,d);
+        build(tree, left_child(ind), left,left,d);
+        build(tree, right_child(ind), right,right,d);
         return;
     }
 
@@ -191,9 +188,8 @@ void build(int ind, int left, int right, enum dim d)
 
     parent->flags |= HAS_LCHILD;
     parent->flags |= HAS_RCHILD;
-    build(left_child(ind), left,med-1,d+1);
-    build(right_child(ind), med+1,right,d+1);
-
+    build(tree, left_child(ind), left,med-1,d+1);
+    build(tree, right_child(ind), med+1,right,d+1);
     return;
 }
 
@@ -213,23 +209,20 @@ static int pow2ceil(int x)
     return x;
 }
 
-node_t * tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
+kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 {
-
-    int msize = pow2ceil(size)+1;
-
-    tree_data = (node_t *) calloc( msize, sizeof(node_t) );
-
-    _x_build = x; _y_build = y; _z_build = z;
-
+    kdtree_t tree;
+    tree.memsize = pow2ceil(size);
+    tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
+    tree.x_data = x; tree.y_data = y; tree.z_data = z;
 
     /* Argsort the inputs */
     x_arg = argsort(x, size); y_arg = argsort(y, size); z_arg = argsort(z, size);
 
-    build( 1, 0, size-1, X );
+    build(tree, 1, 0, size-1, X );
 
     free(x_arg); free(y_arg); free(z_arg);
 
-    return tree_data + 1;
+    return tree;
 }
 

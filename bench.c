@@ -15,11 +15,11 @@
 
 int main(int argc, char *argv[]) {
 
-    printf("argv %s\n", argv[1]);
+    //printf("argv %s\n", argv[1]);
     int prov;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &prov);
 
-    printf("argv %s\n", argv[1]);
+    //printf("argv %s\n", argv[1]);
     int num_threads = 4;
     //MPI_Init(NULL,NULL);
 
@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    /*
     if(!rank) {
         if(prov == MPI_THREAD_SINGLE)
             printf("Providing SINGLE\n");
@@ -37,6 +38,7 @@ int main(int argc, char *argv[]) {
         else if (prov == MPI_THREAD_MULTIPLE)
             printf("Providing MULTIPLE\n");
     }
+    */
 
     int i;
     int n = SIZE;
@@ -54,17 +56,18 @@ int main(int argc, char *argv[]) {
     }
     
     printf("Generated random data...\n");
-    node_t * root = tree_construct(n, x, y, z);
+    kdtree_t data_tree = tree_construct(n, x, y, z);
     printf("Constructed k-d tree...\n");
 
     FLOAT radius = 0.05;
-    long long output = two_point_correlation(root, x, y, z, n, radius, num_threads,
+    long long output = two_point_correlation(data_tree, x, y, z, n, radius, num_threads,
                                                             MPI_COMM_WORLD);
+
     printf("Sum: %lld\n", output);
     printf("A node is %d bytes.\n", nodesize());
-    verify_main(root,0);
+    verify_main(data_tree,0);
     printf("Done verifying\n");
-    printf("The tree has %d nodes.\n", count(root));
+    printf("The tree has %d nodes.\n", count_main(data_tree));
     MPI_Finalize();
     return 0;
 }
