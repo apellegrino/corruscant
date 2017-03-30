@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #ifndef KDTREE_H
+#define KDTREE_H
 #include "kdtree.h"
 #endif
 
@@ -117,9 +118,13 @@ inline int right_child(int p)
     return 2*p+1;
 }
 
+enum dim inline next_dim(enum dim d)
+{
+    return (d+1)%3;
+}
+
 void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 {
-    d=d%3;
     double *x, *y, *z;
     int med, med_arg;
 
@@ -131,6 +136,7 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = (left+right+1)/2;
 
+    med_arg = 0;
     /* Find index of the median in appropriate position list */
     switch(d) {
     case X:
@@ -188,8 +194,8 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 
     parent->flags |= HAS_LCHILD;
     parent->flags |= HAS_RCHILD;
-    build(tree, left_child(ind), left,med-1,d+1);
-    build(tree, right_child(ind), med+1,right,d+1);
+    build(tree, left_child(ind), left,med-1,next_dim(d));
+    build(tree, right_child(ind), med+1,right,next_dim(d));
     return;
 }
 

@@ -1,4 +1,5 @@
 #ifndef KDTREE_H
+#define KDTREE_H
 #include "kdtree.h"
 #endif
 

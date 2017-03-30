@@ -2,9 +2,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "kdtree.h"
-
 #include "kdtest.h"
+
+#ifndef KDTREE_H
+#define KDTREE_H
+#include "kdtree.h"
+#endif
 
 #ifndef MPI_H
 #define MPI_H

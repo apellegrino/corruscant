@@ -27,6 +27,7 @@ typedef struct kdtree {
 
 int left_child(int);
 int right_child(int);
+enum dim next_dim(enum dim);
 
 kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
 

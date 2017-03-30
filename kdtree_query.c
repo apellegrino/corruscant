@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #ifndef KDTREE_H
+#define KDTREE_H
 #include "kdtree.h"
 #endif
 
@@ -31,7 +32,6 @@ void destroy(node_t *p)
  */
 static int radius(int pi, enum dim d, int qi, FLOAT r)
 {
-    d=d%3;
     int i;
     double x, y, z;
     node_t p = *(tree_data+pi);
@@ -39,7 +39,7 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
     x = _x_query[qi]; y = _y_query[qi]; z = _z_query[qi];
 
     FLOAT rsq, dx, dy, dz;
-    FLOAT pos_upper, pos_lower, point;
+    FLOAT pos_upper = 0.0, pos_lower = 0.0, point = 0.0;
 
     rsq = r*r;
     dx = p.x - x; dy = p.y - y; dz = p.z - z;
@@ -48,7 +48,7 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
     if( !(p.flags & HAS_LCHILD) ) { /* no children */
         return (n < rsq);
     } else if ( !(p.flags & HAS_RCHILD) ) { /* one child */
-        return (n < rsq) + radius(left_child(pi),d+1,qi,r);
+        return (n < rsq) + radius(left_child(pi),next_dim(d),qi,r);
     } else { /* two children */
         switch(d) {
         case X:
@@ -69,13 +69,13 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
         }
 
         if (pos_upper < point) {
-            i=radius(left_child(pi),d+1,qi,r);
+            i=radius(left_child(pi),next_dim(d),qi,r);
         } else if (pos_lower > point) {
-            i=radius(right_child(pi),d+1,qi,r);
+            i=radius(right_child(pi),next_dim(d),qi,r);
         } else {
             i = (n < rsq) +
-                radius(left_child(pi),d+1,qi,r) +
-                radius(right_child(pi),d+1,qi,r);
+                radius(left_child(pi),next_dim(d),qi,r) +
+                radius(right_child(pi),next_dim(d),qi,r);
         }
         return i;
     }
