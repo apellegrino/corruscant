@@ -23,6 +23,7 @@ typedef struct kdtree {
     int size;
     int memsize;
     double *x_data, *y_data, *z_data;
+    int *x_arg, *y_arg, *z_arg;
 } kdtree_t;
 
 int left_child(int);

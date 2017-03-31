@@ -8,8 +8,6 @@
 #include "kdtree.h"
 #endif
 
-static int *x_arg, *y_arg, *z_arg;
-
 static inline void swapCustomFloat(FLOAT * a, FLOAT * b)
 {
     FLOAT temp;
@@ -29,6 +27,16 @@ static inline void swapInt(int * a, int * b)
 static inline int min(int a, int b)
 {
     return a < b ? a : b;
+}
+
+/*
+ *  Return median index of sorted array given edges. With choice of rounding to
+ *  the left or right for even lengths, we choose right so that nodes with one
+ *  child have a left child.
+ */
+static inline int median(int left, int right)
+{
+    return (left+right+1)/2;
 }
 
 /* 
@@ -82,20 +90,75 @@ static int * argsort(FLOAT *a, int size)
     return ind;
 }
 
-static void partition(FLOAT * vals, int * args, FLOAT key, int left, int right, 
-                int median, int med_index)
+/*
+static enum dim choose_dim()
 {
-    int i, j, k, arg, size, split;
-    split = med_index - left;
+}
+*/
+
+FLOAT * get_data_array(kdtree_t tree, enum dim d)
+{
+    switch(d) {
+    case X:
+        return tree.x_data;
+    case Y:
+        return tree.y_data;
+    case Z:
+        return tree.z_data;
+    default:
+        return NULL;
+    }
+
+}
+
+int * get_arg_array(kdtree_t tree, enum dim d)
+{
+    switch(d) {
+    case X:
+        return tree.x_arg;
+    case Y:
+        return tree.y_arg;
+    case Z:
+        return tree.z_arg;
+    default:
+        return NULL;
+    }
+
+}
+
+/*
+ *  Partition a section of the array "args" from indicies "left" to "right" as
+ *  being either indicies to values in "vals" smaller or larger than the key.
+ *  Leave a null value in the middle in place of the index that locates "key"
+ *  inside "vals".
+ */
+static void partition(kdtree_t tree, int left, int right, enum dim d_key,
+                      enum dim d_part)
+{
+    FLOAT * vals;
+    int * args;
+    vals = get_data_array(tree, d_key);
+    args = get_arg_array(tree, d_part);
+
+    int med_index = median(left,right);
+    int med_arg = *(get_arg_array(tree,d_key) + med_index);
+    FLOAT key = vals[med_arg];
+
+    int split = med_index - left;
+
+    int i, j, k, size;
+
     j = 0;
     k = split+1;
     size = right-left+1;
     int *args_new = (int*) malloc(sizeof(int)*size);
 
     args_new[split] = -1;
+
+    int arg;
     for(i=left; i<=right; i++) {
         arg = args[i];
-        if (arg == median) continue;
+        if (arg == med_arg) continue;
         if (vals[arg] < key) {
             args_new[j] = arg;
             j++;
@@ -106,6 +169,7 @@ static void partition(FLOAT * vals, int * args, FLOAT key, int left, int right,
     }
 
     memcpy(args+left,args_new,size*sizeof(int));
+    free(args_new);
 }
 
 inline int left_child(int p)
@@ -134,21 +198,10 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     x = tree.x_data; y = tree.y_data; z = tree.z_data;
 
     /* Median index of the sub-array. Rounds up for even sized lists */
-    med = (left+right+1)/2;
+    med = median(left,right);
 
-    med_arg = 0;
     /* Find index of the median in appropriate position list */
-    switch(d) {
-    case X:
-        med_arg = x_arg[med];
-        break;
-    case Y:
-        med_arg = y_arg[med];
-        break;
-    case Z:
-        med_arg = z_arg[med];
-        break;
-    }
+    med_arg = *( get_arg_array(tree, d) + med );
 
     /* this node is the median */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
@@ -179,16 +232,16 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     /*  partition index array of other dims w.r.t. current dim */
     switch(d) {
     case X:
-        partition(x, y_arg, x[med_arg], left, right, med_arg, med);
-        partition(x, z_arg, x[med_arg], left, right, med_arg, med);
+        partition(tree, left, right, X, Y);
+        partition(tree, left, right, X, Z);
         break;
     case Y:
-        partition(y, z_arg, y[med_arg], left, right, med_arg, med);
-        partition(y, x_arg, y[med_arg], left, right, med_arg, med);
+        partition(tree, left, right, Y, X);
+        partition(tree, left, right, Y, Z);
         break;
     case Z:
-        partition(z, x_arg, z[med_arg], left, right, med_arg, med);
-        partition(z, y_arg, z[med_arg], left, right, med_arg, med);
+        partition(tree, left, right, Z, X);
+        partition(tree, left, right, Z, Y);
         break;
     }
 
@@ -223,11 +276,13 @@ kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
     tree.x_data = x; tree.y_data = y; tree.z_data = z;
 
     /* Argsort the inputs */
-    x_arg = argsort(x, size); y_arg = argsort(y, size); z_arg = argsort(z, size);
+    tree.x_arg = argsort(x, size);
+    tree.y_arg = argsort(y, size);
+    tree.z_arg = argsort(z, size);
 
     build(tree, 1, 0, size-1, X );
-
-    free(x_arg); free(y_arg); free(z_arg);
+    
+    free(tree.x_arg); free(tree.y_arg); free(tree.z_arg);
 
     return tree;
 }
