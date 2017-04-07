@@ -1,4 +1,4 @@
-CC= mpicc
+CC= gcc
 BINS= bench libkdtree.so cosmology.so
 all: cosmology.so libkdtree.so bench
 .PHONY: clean python

@@ -97,22 +97,12 @@ typedef struct thread_args {
 } thread_args_t;
 
 
-void assign_idx(int this_thread, int num_threads, int n_array, int * start,
-                                                                int * stop)
+void assign_idx(int rank, int size, int n_array, int * start, int * stop)
 {
-
-    int mpi_rank, mpi_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    
-    int size = mpi_size * num_threads;
-    int rank = mpi_rank * num_threads + this_thread;
-
     int n_array_local = n_array / size + ( n_array % size > rank );
 
     *start = rank * ( n_array / size ) + min( rank, n_array % size );
     *stop = *start + n_array_local;
-
 }
 
 void * twopoint_wrap(void *voidargs)
@@ -141,12 +131,9 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
-                FLOAT z[], int n, FLOAT r, int num_threads, MPI_Comm comm)
+long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
+                                int n, FLOAT r, int num_threads)
 {
-    int i, rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     tree_data = tree.node_data;
 
@@ -159,6 +146,8 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
     ss.sum = (long long *)malloc(num_threads * sizeof(long long));
     
     thread_args_t targs[num_threads];
+
+    int i;
     for(i=0; i<num_threads; i++) {
         targs[i].shared_args_p = &ss;
         targs[i].thread_rank = i;
@@ -168,9 +157,6 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
     threads[0] = pthread_self();
 
     long long result = 0;
-
-    double t1, t2;
-    t1 = MPI_Wtime();
 
     for(i=1; i<num_threads; i++) 
         pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
@@ -182,14 +168,6 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[],
 
     for (i=0; i<num_threads; i++)
         result += ss.sum[i];
-
-    MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_LONG_LONG_INT, MPI_SUM, comm);
-
-    t2 = MPI_Wtime();
-
-    if(!rank) {
-        printf("Time on rank 0: %f sec\n", t2 - t1);
-    }
 
     return result;
 }

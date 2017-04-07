@@ -1,7 +1,6 @@
 import os
 from ctypes import *
 import numpy as np
-from mpi4py import MPI
 
 '''
 coslib = CDLL(os.path.abspath("cosmology.so"))
@@ -36,11 +35,6 @@ class kdtree(Structure):
 
 kdlib = CDLL(os.path.abspath("libkdtree.so"))
 
-if MPI._sizeof(MPI.Comm) == sizeof(c_int):
-    MPI_Comm = c_int
-else:
-    MPI_Comm = c_void_p
-
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
                                 c_int,
@@ -63,7 +57,6 @@ kdlib.two_point_correlation.argtypes = [
                             POINTER(c_double),
                             c_int,
                             c_double,
-                            MPI_Comm,
                             ]
 
 class twopoint_constructor:
@@ -102,25 +95,22 @@ class twopoint_constructor:
 
         out = []
 
-        comm_ptr = MPI._addressof(MPI.COMM_WORLD)
-        comm_val = MPI_Comm.from_address(comm_ptr)
-
         for r in radii:
             dd = kdlib.two_point_correlation(self.data_tree,
                                     data_x.ctypes.data_as(POINTER(c_double)),
                                     data_y.ctypes.data_as(POINTER(c_double)),
                                     data_z.ctypes.data_as(POINTER(c_double)),
-                                    nd,r,comm_val)
+                                    nd,r)
             dr = kdlib.two_point_correlation(self.data_tree,
                                     rand_x.ctypes.data_as(POINTER(c_double)),
                                     rand_y.ctypes.data_as(POINTER(c_double)),
                                     rand_z.ctypes.data_as(POINTER(c_double)),
-                                    nr,r,comm_val)
+                                    nr,r)
             rr = kdlib.two_point_correlation(self.rand_tree,
                                     rand_x.ctypes.data_as(POINTER(c_double)),
                                     rand_y.ctypes.data_as(POINTER(c_double)),
                                     rand_z.ctypes.data_as(POINTER(c_double)),
-                                    nr,r,comm_val)
+                                    nr,r)
 
             out.append((f*f*dd-2*f*dr+rr)/float(rr))
 

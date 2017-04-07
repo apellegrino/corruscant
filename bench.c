@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "kdtest.h"
 
 #ifndef KDTREE_H
@@ -9,39 +10,11 @@
 #include "kdtree.h"
 #endif
 
-#ifndef MPI_H
-#define MPI_H
-#include "mpi.h"
-#endif
-
 #define SIZE 400000
 
 int main(int argc, char *argv[]) {
 
-    //printf("argv %s\n", argv[1]);
-    int prov;
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &prov);
-
-    //printf("argv %s\n", argv[1]);
     int num_threads = 4;
-    //MPI_Init(NULL,NULL);
-
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    /*
-    if(!rank) {
-        if(prov == MPI_THREAD_SINGLE)
-            printf("Providing SINGLE\n");
-        else if (prov == MPI_THREAD_FUNNELED)
-            printf("Providing FUNNELED\n");
-        else if (prov == MPI_THREAD_SERIALIZED)
-            printf("Providing SERIALIZED\n");
-        else if (prov == MPI_THREAD_MULTIPLE)
-            printf("Providing MULTIPLE\n");
-    }
-    */
 
     int i;
     int n = SIZE;
@@ -63,14 +36,17 @@ int main(int argc, char *argv[]) {
     printf("Constructed k-d tree...\n");
 
     FLOAT radius = 0.05;
-    long long output = two_point_correlation(data_tree, x, y, z, n, radius, num_threads,
-                                                            MPI_COMM_WORLD);
+    struct timespec start, finish;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    long long output = two_point_correlation(data_tree, x, y, z, n, radius, num_threads);
+    clock_gettime(CLOCK_MONOTONIC, &finish);
 
     printf("Sum: %lld\n", output);
+    printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)
+                                + (finish.tv_nsec-start.tv_nsec)/1e9);
     printf("A node is %d bytes.\n", nodesize());
     verify_main(data_tree,0);
     printf("Done verifying\n");
     printf("The tree has %d nodes.\n", count_main(data_tree));
-    MPI_Finalize();
     return 0;
 }

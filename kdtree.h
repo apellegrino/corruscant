@@ -2,11 +2,6 @@
 
 #define KDTREE_H
 
-#ifndef MPI_H
-#define MPI_H
-#include "mpi.h"
-#endif
-
 #define HAS_LCHILD 1
 #define HAS_RCHILD 2
 
@@ -33,4 +28,4 @@ enum dim next_dim(enum dim);
 kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
 
 long long two_point_correlation(kdtree_t, FLOAT [], FLOAT [],
-                                    FLOAT [], int, FLOAT, int, MPI_Comm);
+                                    FLOAT [], int, FLOAT, int);
