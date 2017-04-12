@@ -9,17 +9,17 @@ cosmology.so: cosmology.c
 
 python: libkdtree.so
 
-libkdtree.so: kdtree_build.c kdtree_query.c
+libkdtree.so: build.c query.c kdtest.c
 	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
 
-bench: bench.o kdtree_build.o kdtree_query.o kdtest.o
+bench: bench.o build.o query.o kdtest.o
 	${CC} $^ -o $@ -lpthread -lrt
 
-kdtest: kdtest.o kdtree_build.o kdtree_query.o
+kdtest: kdtest.o build.o query.o
 	${CC} $^ -o $@
 
 %.o: %.c
-	${CC} -g -O2 -c -Wall $^
+	${CC} -O2 -c -Wall $^
 
 clean:
 	rm -f *.o *.so *.pyc ${BINS}

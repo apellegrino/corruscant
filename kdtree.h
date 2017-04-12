@@ -27,5 +27,5 @@ enum dim next_dim(enum dim);
 
 kdtree_t tree_construct(int, FLOAT [], FLOAT [], FLOAT []);
 
-long long two_point_correlation(kdtree_t, FLOAT [], FLOAT [],
-                                    FLOAT [], int, FLOAT, int);
+long long pair_count(kdtree_t, FLOAT [], FLOAT [],
+                     FLOAT [], int, FLOAT, int);

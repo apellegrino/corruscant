@@ -14,7 +14,7 @@
 
 int main(int argc, char *argv[]) {
 
-    int num_threads = 4;
+    int num_threads = 32;
 
     int i;
     int n = SIZE;
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     FLOAT radius = 0.05;
     struct timespec start, finish;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    long long output = two_point_correlation(data_tree, x, y, z, n, radius, num_threads);
+    long long output = pair_count(data_tree, x, y, z, n, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     printf("Sum: %lld\n", output);

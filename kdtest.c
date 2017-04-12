@@ -5,12 +5,42 @@ int nodesize(void) {
     return sizeof(node_t);
 }
 
+inline unsigned long long convert(double x)
+{
+    return *((long long *) &x);
+}
+
+unsigned long long node_hash(node_t * n)
+{
+    return convert(n->x) + convert(n->y) + convert(n->z);
+}
+
+unsigned long long _hash(node_t * data, int i)
+{
+    node_t n = *(data+i);
+    unsigned long long sum = node_hash(data+i);
+
+    if(n.flags & HAS_LCHILD) {
+        if(n.flags & HAS_RCHILD) {
+            sum += _hash(data,right_child(i));
+        }
+        sum += 2 * _hash(data,left_child(i));
+    }
+
+    return sum;
+}
+
+unsigned long long hash(kdtree_t t)
+{
+    return _hash(t.node_data,1);
+}
+
 static void verify(node_t * data, int index, enum dim d) {
 	d=d%3;
 
     node_t *parent, *lc, *rc;
     char *errmsg = "node %p should not be %s child of %p (%lf, %lf) \n";
-    int comp;
+    int comp = 1;
 
     parent = data + index;
 

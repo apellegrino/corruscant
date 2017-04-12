@@ -21,11 +21,6 @@ static inline FLOAT norm2(FLOAT a, FLOAT b, FLOAT c)
     return a*a+b*b+c*c;
 }
 
-void destroy(node_t *p)
-{
-    free(p);
-}
-
 /*
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.
@@ -131,10 +126,10 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
+long long pair_count(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
                                 int n, FLOAT r, int num_threads)
 {
-
+    //printf("In pair_count\n");
     tree_data = tree.node_data;
 
     _x_query = x; _y_query = y; _z_query = z;
@@ -143,7 +138,7 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
     ss.n = n;
     ss.r = r;
     ss.num_threads = num_threads;
-    ss.sum = (long long *)malloc(num_threads * sizeof(long long));
+    ss.sum = (long long *)calloc(num_threads, sizeof(long long));
     
     thread_args_t targs[num_threads];
 
@@ -158,16 +153,15 @@ long long two_point_correlation(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
 
     long long result = 0;
 
-    for(i=1; i<num_threads; i++) 
+    for(i=0; i<num_threads; i++) 
         pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
 
-    twopoint_wrap(targs);
-
-    for(i=1; i<num_threads; i++)
+    for(i=0; i<num_threads; i++)
         pthread_join(threads[i], NULL);
 
     for (i=0; i<num_threads; i++)
         result += ss.sum[i];
 
+    //printf("Leaving pair_count\n");
     return result;
 }

@@ -187,6 +187,11 @@ enum dim inline next_dim(enum dim d)
     return (d+1)%3;
 }
 
+void destroy(kdtree_t * t)
+{
+    free(t->node_data);
+}
+
 void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 {
     double *x, *y, *z;
@@ -249,6 +254,8 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     parent->flags |= HAS_RCHILD;
     build(tree, left_child(ind), left,med-1,next_dim(d));
     build(tree, right_child(ind), med+1,right,next_dim(d));
+
+
     return;
 }
 
@@ -271,6 +278,7 @@ static int pow2ceil(int x)
 kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
 {
     kdtree_t tree;
+    tree.size = size;
     tree.memsize = pow2ceil(size);
     tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
     tree.x_data = x; tree.y_data = y; tree.z_data = z;
@@ -281,9 +289,9 @@ kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
     tree.z_arg = argsort(z, size);
 
     build(tree, 1, 0, size-1, X );
-    
+
+    /* argsort key arrays are only necessary for building the tree */
     free(tree.x_arg); free(tree.y_arg); free(tree.z_arg);
 
     return tree;
 }
-
