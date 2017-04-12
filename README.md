@@ -22,3 +22,13 @@ export PYTHONPATH="$PYTHONPATH:$(pwd)"
 #!bash
 export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
 ```
+Then finally:
+```
+#!bash
+source ~/.bashrc
+```
+You can now use the library in python with
+```
+#!python
+import tpcf
+```
