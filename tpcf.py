@@ -6,6 +6,8 @@ import numpy as np
 # Cosmology library for computing comoving distances quickly, to be used with
 # scipy.integrate
 
+# future: put function for scipy to integrate in cosmology.so library
+
 coslib = CDLL(os.path.abspath("cosmology.so"))
 coslib.f.argtypes = (c_int,c_double)
 coslib.f.restype = c_double
