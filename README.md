@@ -8,7 +8,7 @@ This is a C and Python library for calculation of the two-point correlation func
 #!bash
 
 cd ~
-git clone https://apellegrino@bitbucket.org/apellegrino/clustering-tree.git
+git clone https://[your Bitbucket username]@bitbucket.org/apellegrino/clustering-tree.git
 cd clustering-tree
 make python
 ```
