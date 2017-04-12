@@ -1,6 +1,6 @@
 CC= gcc
-BINS= bench libkdtree.so cosmology.so
-all: cosmology.so libkdtree.so bench
+BINS= bench libkdtree.so
+all: libkdtree.so bench
 .PHONY: clean python
 
 python: libkdtree.so
