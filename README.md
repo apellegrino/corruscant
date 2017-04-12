@@ -7,6 +7,7 @@ C library for calculation of the two-point correlation function on 3D cartesian 
 ```
 #!bash
 
+cd ~/
 git clone https://apellegrino@bitbucket.org/apellegrino/clustering-tree.git
 cd clustering-tree
 make python
