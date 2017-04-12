@@ -12,7 +12,7 @@ git clone https://[your Bitbucket username]@bitbucket.org/apellegrino/clustering
 cd clustering-tree
 make python
 ```
-Then, add the following line to the end of your ~/.bashrc file:
+Then, add the following line to the end of your ~/.bash_profile or ~/.profile file:
 ```
 #!bash
 export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
@@ -20,9 +20,9 @@ export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
 Then finally:
 ```
 #!bash
-source ~/.bashrc
+source ~/.bash_profile *(or ~/.profile)*
 ```
-You can now use the library in python with
+You can now use the library in Python with
 ```
 #!python
 import tpcf
