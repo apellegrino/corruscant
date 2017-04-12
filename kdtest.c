@@ -7,7 +7,13 @@ int nodesize(void) {
 
 inline unsigned long long convert(double x)
 {
-    return *((long long *) &x);
+    /* could do return *((long long *) &x) here, but the following does not
+     * raise a strict-aliasing warning from gcc */ 
+    union u {
+        double d;
+        long long l;
+    };
+    return ((union u *) &x)->d;
 }
 
 unsigned long long node_hash(node_t * n)
