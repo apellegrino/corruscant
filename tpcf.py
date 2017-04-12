@@ -1,5 +1,5 @@
-import os
 from ctypes import *
+from os.path import abspath, dirname
 import numpy as np
 
 '''
@@ -45,7 +45,9 @@ class kdtree(Structure):
         ("z",POINTER(c_double)),
         ]
 
-kdlib = CDLL(os.path.abspath("libkdtree.so"))
+path_here = abspath(__file__)
+path_dir = dirname(path_here)
+kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -246,4 +248,13 @@ def pair_counts(data, rand, radii, xi_error_type=None,
     elif xi_error_type == 'poisson':
         error = np.divide(1 + ls,np.sqrt(dd_array))
 
-    return dd_array, dr_array, rr_array, ls, error
+    output = {  
+                "xi_error_type":xi_error_type,
+                "radii":radii,
+                "DD":dd_array,
+                "DR":dr_array,
+                "RR":rr_array,
+                "estimator":ls,
+                "error":error,
+            }
+    return output

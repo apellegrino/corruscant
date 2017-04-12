@@ -1,21 +1,30 @@
 CC= gcc
-BINS= bench libkdtree.so
-all: libkdtree.so bench
-.PHONY: clean python
+BIN_NAMES= bench libkdtree.so
+SRC= src
+BIN= bin
+OBJ= obj
 
-python: libkdtree.so
+all: mkdirs python ${BIN}/bench
 
-libkdtree.so: build.c query.c kdtest.c
+.PHONY: python
+python: mkdirs ${BIN}/libkdtree.so
+
+${BIN}/libkdtree.so: ${SRC}/build.c ${SRC}/query.c ${SRC}/kdtest.c
 	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
 
-bench: bench.o build.o query.o kdtest.o
+${BIN}/bench: ${OBJ}/bench.o ${OBJ}/build.o ${OBJ}/query.o ${OBJ}/kdtest.o
 	${CC} $^ -o $@ -lpthread -lrt
 
-kdtest: kdtest.o build.o query.o
+${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/build.o ${OBJ}/query.o
 	${CC} $^ -o $@
 
-%.o: %.c
-	${CC} -O2 -c -Wall $^
+${OBJ}/%.o: ${SRC}/%.c
+	${CC} -O2 -c -Wall $< -o $@
 
+.PHONY: mkdirs
+mkdirs:
+	mkdir -p obj bin
+
+.PHONY: clean
 clean:
-	rm -f *.o *.so *.pyc ${BINS}
+	rm -f ${OBJ}/*.o ${BIN}/bench ${BIN}/*.so tpcf/*.pyc ${BIN_NAMES}
