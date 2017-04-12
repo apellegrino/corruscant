@@ -20,7 +20,7 @@ export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
 Then finally:
 ```
 #!bash
-source ~/.bash_profile *(or ~/.profile)*
+source ~/.bash_profile (or ~/.profile)
 ```
 You can now use the library in Python with
 ```
