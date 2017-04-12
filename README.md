@@ -14,7 +14,7 @@ make python
 Execute this next line in the same directory, or...
 ```
 #!bash
-export LD_LIBRARY_PATH="$PYTHONPATH:$(pwd)"
+export PYTHONPATH="$PYTHONPATH:$(pwd)"
 ```
 ...add this line to the end of your ~/.bashrc file:
 ```
