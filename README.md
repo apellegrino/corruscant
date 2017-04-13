@@ -32,3 +32,39 @@ You can now use the library in Python with
 #!python
 import tpcf
 ```
+
+Example usage can be found in test/example.py:
+
+```
+#!python
+import tpcf
+import numpy as np
+
+dsize = 4000
+rsize = dsize*20
+
+X_data = np.random.rand(3,dsize)
+X_random = np.random.rand(3,rsize)
+
+radii = np.logspace(-2.5,-1.,6)
+
+results = tpcf.pair_counts(X_data, X_random, radii,
+                           xi_estimator_type="landy-szalay",
+                           xi_error_type="field-to-field", num_threads=2)
+
+print "------- Using Landy-Szalay estimator, field-to-field error -------"
+
+print "r = "
+print radii
+
+print "DD, DR, RR differential counts"
+dd = results["DD"]
+dr = results["DR"]
+rr = results["RR"]
+print np.vstack([dd,dr,rr]).T
+
+print "Estimated Xi(r)"
+print results["estimator"]
+print "sigma^2 of Xi(r)"
+print results["error"]
+```
