@@ -2,38 +2,8 @@ from ctypes import *
 from os.path import abspath, dirname
 import numpy as np
 
-'''
-# Cosmology library for computing comoving distances quickly, to be used with
-# scipy.integrate
-
-# future: put function for scipy to integrate in cosmology.so library
-
-coslib = CDLL(os.path.abspath("cosmology.so"))
-coslib.f.argtypes = (c_int,c_double)
-coslib.f.restype = c_double
-'''
-
-# To define a ctypes struct that contains pointers to the same struct type, we
-# must declare the class first and then add references
 class node(Structure):
     pass
-
-'''
-# python never manipulates nodes directly so we may not need
-# fields for the ctpyes structs
-node._fields_ = [
-
-    ("x", c_double),
-    ("y", c_double),
-    ("z", c_double),
-    ("left_child", POINTER(node) ),
-    ("left_child", POINTER(node) ),
-    ]
-'''
-
-# accessing ctypes data:
-# print cast(self.data_tree.y, POINTER(c_double)).contents
-
 
 class kdtree(Structure):
     _fields_ = [
@@ -51,23 +21,23 @@ kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
-                            c_int,
-                            POINTER(c_double),
-                            POINTER(c_double),
-                            POINTER(c_double),
+                            c_int, # array size
+                            POINTER(c_double), # x array
+                            POINTER(c_double), # y array
+                            POINTER(c_double), # z array
                             ]
 
 kdlib.destroy.restype = None
-kdlib.destroy.argtypes = [ POINTER(kdtree) ]
+kdlib.destroy.argtypes = [ POINTER(kdtree) ] # tree to destroy
 
-kdlib.pair_count.restype = c_longlong
+kdlib.pair_count.restype = c_longlong # num. of pair counts
 kdlib.pair_count.argtypes = [
-                            kdtree,
-                            POINTER(c_double),
-                            POINTER(c_double),
-                            POINTER(c_double),
-                            c_int,
-                            c_double,
+                            kdtree, # tree to query
+                            POINTER(c_double), # x in array of querying pts.
+                            POINTER(c_double), # y in array of querying pts.
+                            POINTER(c_double), # z in array of querying pts.
+                            c_int, # array size
+                            c_double, # radius
                             ]
 
 def _unpack(data):
@@ -76,7 +46,8 @@ def _unpack(data):
 
 def _make_tree(data):
 
-    # tree_construct is inefficient for sorted data
+    # tree_construct is inefficient for sorted data due to quicksort.
+    # Maybe use mergesort instead
     np.random.shuffle(data.T)
     data_x, data_y, data_z = _unpack(data)
 
@@ -93,7 +64,8 @@ def _make_tree(data):
 def _jackknife(data, random, N, dim=0):
     nd = data.shape[1]
 
-    # sort data and random in dim
+    # sort data and random in the (dim) dimension
+    # X=0, Y=1, Z=2
     data = data[:,np.argsort(data[dim,:])]
     random = random[:,np.argsort(random[dim,:])]
 
@@ -102,7 +74,7 @@ def _jackknife(data, random, N, dim=0):
         start = i * nd/N + min(i,nd % N)
         stop = start + nd/N + (nd % N > i)
 
-        # exclude from start to stop
+        # exclude the range from start to stop
         data_sub = np.concatenate([data[:,:start], data[:,stop:]], axis=1)
 
         # counter bias due to splitting based on data position
@@ -149,12 +121,9 @@ def _ftf(data, random, N=10, dim=0):
 
         random_sub = random[:,random[dim] > data_min]
         random_sub = random_sub[:,random_sub[dim] < data_max]
-        yield np.copy(data_sub), np.copy(random_sub)
+        yield data_sub, random_sub
 
-def landy_szalay(dd,dr,rr,f):
-    return ( f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr) ) / np.array(rr)
-
-def _query_tree(data, tree, radius, num_threads):
+def _query_tree(tree, data, radius, num_threads):
 
     data_x, data_y, data_z = _unpack(data)
     nd = data.shape[1]
@@ -167,86 +136,101 @@ def _query_tree(data, tree, radius, num_threads):
 
     return count
 
-def _pc(data_tree, X_data, rand_tree, X_rand, radii, num_threads):
-    # Num. random points
-    nr = rand_tree.size
-    # Num. data points
-    nd = data_tree.size
+class InputError:
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
 
-    # Data-data pair counts as function of radius
-    dd_array = []
-    # Data-random pair counts
-    dr_array = []
-    # Random-random pair counts
-    rr_array = []
+def validate_array(arr):
+    if not type(arr) is np.ndarray:
+        raise InputError("Array must be a Numpy array")
 
-    for r in radii:
-        dd = _query_tree(X_data, data_tree, r, num_threads)
-        dr = _query_tree(X_data, rand_tree, r, num_threads)
-        rr = _query_tree(X_rand, rand_tree, r, num_threads)
+    if not (arr.shape[0] == 3 and arr.ndim == 2):
+        raise InputError("Array must be of shape (3, N). The provided array has shape %s" % str(arr.shape))
 
-        dd_array.append(dd)
-        dr_array.append(dr)
-        rr_array.append(rr)
+def est_landy_szalay(dd,dr,rr,dsize,rsize):
+    f = float(rsize)/dsize
+    return ( f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr) ) / np.array(rr)
 
-    return np.diff(dd_array), np.diff(dr_array), np.diff(rr_array)
+def est_hamilton(dd,dr,rr):
+    return np.divide( np.multiply(dd,rr).astype("float64"),
+                      np.multiply(dr,dr).astype("float64") ) - 1.
+
+def est_standard(dd,dr,dsize,rsize):
+    return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
 def pair_counts(data, rand, radii, xi_error_type=None,
-                xi_estimator_type='landy-szalay', N_error=10, num_threads=32):
+                xi_estimator_type="landy-szalay", N_error=10, num_threads=4):
+
+    est_types = [None, "landy-szalay", "hamilton", "standard"]
+    if not xi_estimator_type in est_types:
+        raise InputError("Estimator type for Xi %s not valid" % xi_estimator_type)
+
+    validate_array(data)
+    validate_array(rand)
 
     data_tree = _make_tree(data)
     rand_tree = _make_tree(rand)
 
-    dd_array, dr_array, rr_array = _pc(data_tree, data, rand_tree, rand, radii, num_threads)
-    f = float(rand_tree.size)/data_tree.size
-    ls = landy_szalay(dd_array,dr_array,rr_array,f)
+    dd_array = np.diff([_query_tree(data_tree, data, r, num_threads) for r in radii])
+    dr_array = np.diff([_query_tree(rand_tree, data, r, num_threads) for r in radii])
+
+    if not xi_estimator_type == "standard":
+        rr_array = np.diff([_query_tree(rand_tree, rand, r, num_threads) for r in radii])
+    else:
+        rr_array = None
+
+    if xi_estimator_type == "landy-szalay":
+        est = est_landy_szalay(dd_array,dr_array,rr_array,data.size,rand.size)
+    elif xi_estimator_type == "hamilton":
+        est = est_hamilton(dd_array,dr_array,rr_array)
+    elif xi_estimator_type == "standard":
+        est = est_standard(dd_array,dr_array,data.size,rand.size)
 
     kdlib.destroy(data_tree)
     kdlib.destroy(rand_tree)
 
-    # Error as specified by error type:
-    error = []
+    #error = np.array([np.inf] * len(radii-1))
+    error = None
 
-    if xi_error_type == 'jackknife':
-        gen = _jackknife(data, rand, N_error)
+    if xi_error_type == "jackknife" or xi_error_type == "field-to-field":
+        if xi_error_type == "jackknife":
+            gen = _jackknife(data, rand, N_error)
+        elif xi_error_type == "field-to-field":
+            gen = _ftf(data, rand, N_error)
+
         error = np.zeros(len(radii)-1)
 
         for data_subset, rand_subset in gen:
-            f_sub = float(rand_subset.shape[1])/float(data_subset.shape[1])
             data_tree = _make_tree(data_subset)
             rand_tree = _make_tree(rand_subset)
 
-            dd_err, dr_err, rr_err = _pc(data_tree, data_subset, rand_tree, rand_subset, radii, num_threads)
-            ls_sub = landy_szalay(dd_err,dr_err,rr_err,f_sub)
+            dd_err = np.diff([_query_tree(data_tree, data, r, num_threads) for r in radii])
+            dr_err = np.diff([_query_tree(rand_tree, data, r, num_threads) for r in radii])
+            rr_err = np.diff([_query_tree(rand_tree, rand, r, num_threads) for r in radii])
+            
+            if xi_estimator_type == "landy-szalay":
+                est_sub = est_landy_szalay(dd_err,dr_err,rr_err,data_subset.size,rand_subset.size)
+            elif xi_estimator_type == "hamilton":
+                est_sub = est_hamilton(dd_err,dr_err,rr_err)
+            elif xi_estimator_type == "standard":
+                est_sub = est_standard(dd_err,dr_err,data_subset.size,rand_subset.size)
 
-            diff = ls - ls_sub
-            error += np.divide(dr_err.astype('float64'),dr_array)*diff*diff
+            diff = est - est_sub
+            error += np.divide(dr_err.astype("float64"),dr_array)*diff*diff
 
             kdlib.destroy(data_tree)
             kdlib.destroy(rand_tree)
 
-    elif xi_error_type == 'field-to-field':
-        gen = _ftf(data, rand, N_error)
-        error = np.zeros(len(radii)-1)
+        if xi_error_type == "field-to-field":
+            error /= float(N_error - 1)
 
-        for data_subset, rand_subset in gen:
-            f_sub = float(rand_subset.shape[1])/float(data_subset.shape[1])
-            data_tree = _make_tree(data_subset)
-            rand_tree = _make_tree(rand_subset)
-
-            dd_err, dr_err, rr_err = _pc(data_tree, data_subset, rand_tree, rand_subset, radii, num_threads)
-            ls_sub = landy_szalay(dd_err,dr_err,rr_err,f_sub)
-
-            diff = ls - ls_sub
-            error += np.divide(dr_err.astype('float64'),dr_array)*diff*diff
-
-            kdlib.destroy(data_tree)
-            kdlib.destroy(rand_tree)
-
-        error /= float(N_error - 1)
-
-    elif xi_error_type == 'poisson':
-        error = np.divide(1 + ls,np.sqrt(dd_array))
+    elif xi_error_type == "poisson":
+        with np.errstate(divide='ignore', invalid='ignore'):
+            error = np.divide(1 + est,np.sqrt(dd_array))
+            error[np.isneginf(error)] = np.nan
+            error[np.isinf(error)] = np.nan
 
     output = {  
                 "xi_error_type":xi_error_type,
@@ -254,7 +238,7 @@ def pair_counts(data, rand, radii, xi_error_type=None,
                 "DD":dd_array,
                 "DR":dr_array,
                 "RR":rr_array,
-                "estimator":ls,
+                "estimator":est,
                 "error":error,
             }
     return output
