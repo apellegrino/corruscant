@@ -160,12 +160,45 @@ def est_hamilton(dd,dr,rr):
 def est_standard(dd,dr,dsize,rsize):
     return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
-def pair_counts(data, rand, radii, xi_error_type=None,
-                xi_estimator_type="landy-szalay", N_error=10, num_threads=4):
+def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
+                xi_error_type=None, N_error=10, num_threads=4):
+    """Given a set of 3D cartesian data points and random points, calculate the
+    estimated two-point correlation function with error estimation.
 
-    est_types = [None, "landy-szalay", "hamilton", "standard"]
+    Arguments:
+    data (np.ndarray) -- a numpy array of data points with shape (3, N_data).
+    rand (np.ndarray) -- a numpy array of random points with shape (3, N_random).
+    radii (array-like) -- an array-like of floats which define the radius bin sizes.
+
+    Keyword arguments:
+    xi_estimator_type -- the type of estimator to use for the correlation
+    function. (default "landy-szalay") Possible values in order of decreasing
+    speed: "standard" > "landy-szalay" = "hamilton"
+
+    xi_error_type -- a string defining what type of error to calculate. (default None)
+        Possible values in order of decreasing speed:
+            None > "poisson" > "field-to-field" > "jackknife"
+
+    N_error -- an integer describing the number of bins to use when calculating
+    jackknife or field-to-field errors. Lower is faster, higher is more
+    accurate. (default 10)
+
+    num_threads -- an integer describing the number of threads that the C code
+    will create. For max performance, set this to the number of logical cores
+    on your machine. (default 4)
+
+    Return:
+    A dictionary of pair counts, the requested estimator values for input
+    radii, the errors of estimator values if specified, and the input radii
+    list and estimator and error types.
+    """
+    est_types = ["landy-szalay", "hamilton", "standard"]
     if not xi_estimator_type in est_types:
         raise InputError("Estimator type for Xi %s not valid" % xi_estimator_type)
+
+    err_types = [None, "poisson", "field-to-field", "jackknife"]
+    if not xi_error_type in err_types:
+        raise InputError("Estimator error type %s not valid" % xi_error_type)
 
     validate_array(data)
     validate_array(rand)
@@ -233,12 +266,12 @@ def pair_counts(data, rand, radii, xi_error_type=None,
             error[np.isinf(error)] = np.nan
 
     output = {  
-                "xi_error_type":xi_error_type,
                 "radii":radii,
                 "DD":dd_array,
                 "DR":dr_array,
                 "RR":rr_array,
                 "estimator":est,
                 "error":error,
+                "xi_error_type":xi_error_type,
             }
     return output
