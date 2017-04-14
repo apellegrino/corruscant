@@ -1,4 +1,5 @@
 CC= gcc
+CFLAGS= -O2 -Wall
 BIN_NAMES= bench libkdtree.so
 SRC= src
 BIN= bin
@@ -13,7 +14,7 @@ python: mkdirs ${BIN}/libkdtree.so
 benchmark: mkdirs ${BIN}/bench
 
 ${BIN}/libkdtree.so: ${SRC}/build.c ${SRC}/query.c ${SRC}/kdtest.c
-	${CC} -O2 -shared -fPIC $^ -o $@ -lpthread
+	${CC} ${CFLAGS} -shared -fPIC $^ -o $@ -lpthread
 
 ${BIN}/bench: ${OBJ}/bench.o ${OBJ}/build.o ${OBJ}/query.o ${OBJ}/kdtest.o
 	${CC} $^ -o $@ -lpthread -lrt
@@ -22,7 +23,7 @@ ${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/build.o ${OBJ}/query.o
 	${CC} $^ -o $@
 
 ${OBJ}/%.o: ${SRC}/%.c
-	${CC} -O2 -c -Wall $< -o $@
+	${CC} -c ${CFLAGS} $< -o $@
 
 .PHONY: mkdirs
 mkdirs:

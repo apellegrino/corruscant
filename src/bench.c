@@ -19,23 +19,23 @@ int main(int argc, char *argv[]) {
     int i;
     int n = SIZE;
 
-    FLOAT *x = (FLOAT *)malloc(n*sizeof(FLOAT));
-    FLOAT *y = (FLOAT *)malloc(n*sizeof(FLOAT));
-    FLOAT *z = (FLOAT *)malloc(n*sizeof(FLOAT));
+    double *x = (double *)malloc(n*sizeof(double));
+    double *y = (double *)malloc(n*sizeof(double));
+    double *z = (double *)malloc(n*sizeof(double));
 
     srand(2);
 
     for(i=0; i<n; i++) {
-        x[i] = ((FLOAT) rand())/RAND_MAX;
-        y[i] = ((FLOAT) rand())/RAND_MAX;
-        z[i] = ((FLOAT) rand())/RAND_MAX;
+        x[i] = ((double) rand())/RAND_MAX;
+        y[i] = ((double) rand())/RAND_MAX;
+        z[i] = ((double) rand())/RAND_MAX;
     }
     
     printf("Generated random data...\n");
     kdtree_t data_tree = tree_construct(n, x, y, z);
     printf("Constructed k-d tree...\n");
 
-    FLOAT radius = 0.05;
+    double radius = 0.05;
     struct timespec start, finish;
     clock_gettime(CLOCK_MONOTONIC, &start);
     long long output = pair_count(data_tree, x, y, z, n, radius, num_threads);

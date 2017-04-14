@@ -4,6 +4,7 @@ import numpy as np
 dsize = 4000
 rsize = dsize*20
 
+np.random.seed(3)
 X_data = np.random.rand(3,dsize)
 X_random = np.random.rand(3,rsize)
 
