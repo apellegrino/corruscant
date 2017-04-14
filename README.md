@@ -2,7 +2,7 @@
 
 This is a C and Python library for calculation of the two-point correlation function on 3D cartesian data.
 
-### Installation instructions ###
+### Installation instructions for Unix-based systems ###
 
 ```
 #!bash
@@ -43,6 +43,7 @@ import numpy as np
 dsize = 4000
 rsize = dsize*20
 
+np.random.seed(3)
 X_data = np.random.rand(3,dsize)
 X_random = np.random.rand(3,rsize)
 
