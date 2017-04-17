@@ -144,10 +144,19 @@ class InputError:
 
 def validate_array(arr):
     if not type(arr) is np.ndarray:
-        raise InputError("Array must be a Numpy array")
+        arr = np.array(arr)
 
-    if not (arr.shape[0] == 3 and arr.ndim == 2):
-        raise InputError("Array must be of shape (3, N). The provided array has shape %s" % str(arr.shape))
+    if not (arr.ndim == 2):
+        raise InputError("Array must be two-dimensional (i.e. a list of points)")
+
+    # try to make array of shape (3, N) if shape is (N, 3)
+    if (arr.shape[1] == 3):
+        arr = arr.T
+
+    if not(arr.shape[0] == 3):
+        raise InputError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
+
+    return arr
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
     f = float(rsize)/dsize
@@ -201,8 +210,8 @@ def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
     if not xi_error_type in err_types:
         raise InputError("Estimator error type %s not valid" % xi_error_type)
 
-    validate_array(data)
-    validate_array(rand)
+    data = validate_array(data)
+    rand = validate_array(rand)
 
     data_tree = _make_tree(data)
     rand_tree = _make_tree(rand)

@@ -5,7 +5,7 @@ SRC= src
 BIN= bin
 OBJ= obj
 
-all: mkdirs python benchmark
+all: python benchmark
 
 .PHONY: python
 python: mkdirs ${BIN}/libkdtree.so
