@@ -1,43 +1,43 @@
-from ctypes import *
+import ctypes
 from os.path import abspath, dirname
 import numpy as np
 
-class node(Structure):
+class node(ctypes.Structure):
     pass
 
-class kdtree(Structure):
+class kdtree(ctypes.Structure):
     _fields_ = [
-        ("root",POINTER(node)),
-        ("size",c_int),
-        ("memsize",c_int),
-        ("x",POINTER(c_double)),
-        ("y",POINTER(c_double)),
-        ("z",POINTER(c_double)),
+        ("root",ctypes.POINTER(node)),
+        ("size",ctypes.c_int),
+        ("memsize",ctypes.c_int),
+        ("x",ctypes.POINTER(ctypes.c_double)),
+        ("y",ctypes.POINTER(ctypes.c_double)),
+        ("z",ctypes.POINTER(ctypes.c_double)),
         ]
 
 path_here = abspath(__file__)
 path_dir = dirname(path_here)
-kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
+kdlib = ctypes.CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
-                            c_int, # array size
-                            POINTER(c_double), # x array
-                            POINTER(c_double), # y array
-                            POINTER(c_double), # z array
+                            ctypes.c_int, # array size
+                            ctypes.POINTER(ctypes.c_double), # x array
+                            ctypes.POINTER(ctypes.c_double), # y array
+                            ctypes.POINTER(ctypes.c_double), # z array
                             ]
 
 kdlib.destroy.restype = None
-kdlib.destroy.argtypes = [ POINTER(kdtree) ] # tree to destroy
+kdlib.destroy.argtypes = [ ctypes.POINTER(kdtree) ] # tree to destroy
 
-kdlib.pair_count.restype = c_longlong # num. of pair counts
+kdlib.pair_count.restype = ctypes.c_longlong # num. of pair counts
 kdlib.pair_count.argtypes = [
                             kdtree, # tree to query
-                            POINTER(c_double), # x in array of querying pts.
-                            POINTER(c_double), # y in array of querying pts.
-                            POINTER(c_double), # z in array of querying pts.
-                            c_int, # array size
-                            c_double, # radius
+                            ctypes.POINTER(ctypes.c_double), # x in array of querying pts.
+                            ctypes.POINTER(ctypes.c_double), # y in array of querying pts.
+                            ctypes.POINTER(ctypes.c_double), # z in array of querying pts.
+                            ctypes.c_int, # array size
+                            ctypes.c_double, # radius
                             ]
 
 def _unpack(data):
@@ -52,10 +52,10 @@ def _make_tree(data):
     data_x, data_y, data_z = _unpack(data)
 
     tree = kdlib.tree_construct(
-                    c_int(data.shape[1]),
-                    data_x.ctypes.data_as(POINTER(c_double)),
-                    data_y.ctypes.data_as(POINTER(c_double)),
-                    data_z.ctypes.data_as(POINTER(c_double))
+                    ctypes.c_int(data.shape[1]),
+                    data_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                    data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                    data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
                     )
 
     return tree
@@ -129,9 +129,9 @@ def _query_tree(tree, data, radius, num_threads):
     nd = data.shape[1]
 
     count = kdlib.pair_count(tree,
-                             data_x.ctypes.data_as(POINTER(c_double)),
-                             data_y.ctypes.data_as(POINTER(c_double)),
-                             data_z.ctypes.data_as(POINTER(c_double)),
+                             data_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                             data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                             data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                              nd,radius,num_threads)
 
     return count
@@ -144,10 +144,19 @@ class InputError:
 
 def validate_array(arr):
     if not type(arr) is np.ndarray:
-        raise InputError("Array must be a Numpy array")
+        arr = np.array(arr)
 
-    if not (arr.shape[0] == 3 and arr.ndim == 2):
-        raise InputError("Array must be of shape (3, N). The provided array has shape %s" % str(arr.shape))
+    if not (arr.ndim == 2):
+        raise InputError("Array must be two-dimensional (i.e. a list of points)")
+
+    # try to make array of shape (3, N) if shape is (N, 3)
+    if (arr.shape[1] == 3):
+        arr = arr.T
+
+    if not(arr.shape[0] == 3):
+        raise InputError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
+
+    return arr
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
     f = float(rsize)/dsize
@@ -162,6 +171,7 @@ def est_standard(dd,dr,dsize,rsize):
 
 def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
                 xi_error_type=None, N_error=10, num_threads=4):
+#def pair_counts(data, rand, radii, **kwargs):
     """Given a set of 3D cartesian data points and random points, calculate the
     estimated two-point correlation function with error estimation.
 
@@ -200,8 +210,8 @@ def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
     if not xi_error_type in err_types:
         raise InputError("Estimator error type %s not valid" % xi_error_type)
 
-    validate_array(data)
-    validate_array(rand)
+    data = validate_array(data)
+    rand = validate_array(rand)
 
     data_tree = _make_tree(data)
     rand_tree = _make_tree(rand)

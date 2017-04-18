@@ -28,10 +28,11 @@ static inline FLOAT norm2(FLOAT a, FLOAT b, FLOAT c)
 static int radius(int pi, enum dim d, int qi, FLOAT r)
 {
     int i;
-    double x, y, z;
+    FLOAT x, y, z;
     node_t p = *(tree_data+pi);
 
-    x = _x_query[qi]; y = _y_query[qi]; z = _z_query[qi];
+    x = (FLOAT) _x_query[qi]; y = (FLOAT) _y_query[qi]; z = (FLOAT) _z_query[qi];
+    //x = _x_query[qi]; y = _y_query[qi]; z = _z_query[qi];
 
     FLOAT rsq, dx, dy, dz;
     FLOAT pos_upper = 0.0, pos_lower = 0.0, point = 0.0;
@@ -126,10 +127,9 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long pair_count(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
-                                int n, FLOAT r, int num_threads)
+long long pair_count(kdtree_t tree, double x[], double y[], double z[],
+                                int n, double r, int num_threads)
 {
-    //printf("In pair_count\n");
     tree_data = tree.node_data;
 
     _x_query = x; _y_query = y; _z_query = z;
@@ -156,12 +156,10 @@ long long pair_count(kdtree_t tree, FLOAT x[], FLOAT y[], FLOAT z[],
     for(i=0; i<num_threads; i++) 
         pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
 
-    for(i=0; i<num_threads; i++)
+    for(i=0; i<num_threads; i++) {
         pthread_join(threads[i], NULL);
-
-    for (i=0; i<num_threads; i++)
         result += ss.sum[i];
+    }
 
-    //printf("Leaving pair_count\n");
     return result;
 }

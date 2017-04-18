@@ -5,10 +5,13 @@ SRC= src
 BIN= bin
 OBJ= obj
 
-all: python ${BIN}/bench
+all: python benchmark
 
 .PHONY: python
 python: mkdirs ${BIN}/libkdtree.so
+
+.PHONY: benchmark
+benchmark: mkdirs ${BIN}/bench
 
 ${BIN}/libkdtree.so: ${SRC}/build.c ${SRC}/query.c ${SRC}/kdtest.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -o $@ -lpthread
@@ -20,7 +23,7 @@ ${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/build.o ${OBJ}/query.o
 	${CC} $^ -o $@
 
 ${OBJ}/%.o: ${SRC}/%.c
-	${CC} ${CFLAGS} -c $< -o $@
+	${CC} -c ${CFLAGS} $< -o $@
 
 .PHONY: mkdirs
 mkdirs:

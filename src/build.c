@@ -1,3 +1,9 @@
+/*  Andrew Pellegrino, 2017
+ *
+ *  K-d tree building algorithm adapted from Russell A. Brown, Building a
+ *  Balanced k-d Tree in O(kn log n) Time, Journal of Computer Graphics
+ *  Techniques (JCGT), vol. 4, no. 1, 50-68, 2015
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,9 +14,9 @@
 #include "kdtree.h"
 #endif
 
-static inline void swapCustomFloat(FLOAT * a, FLOAT * b)
+static inline void swapDouble(double * a, double * b)
 {
-    FLOAT temp;
+    double temp;
     temp = *a;
     *a = *b;
     *b = temp;
@@ -43,10 +49,10 @@ static inline int median(int left, int right)
  *  perform a quicksort on the array a[left] to a[right] which performs
  *  identical operations on another array b[left] to b[right]
  */
-static void quick_argsort(FLOAT *a, int *b, int left, int right)
+static void quick_argsort(double *a, int *b, int left, int right)
 {
     int i, j;
-    FLOAT pivot;
+    double pivot;
 
     if( right <= left ) return;
 
@@ -58,21 +64,21 @@ static void quick_argsort(FLOAT *a, int *b, int left, int right)
         do ++i; while( a[i] <= pivot && i <= right );
         do --j; while( a[j] > pivot );
         if( i >= j ) break;
-        swapCustomFloat(a+i,a+j);
+        swapDouble(a+i,a+j);
         swapInt(b+i,b+j);
     }
-    swapCustomFloat(a+left,a+j);
+    swapDouble(a+left,a+j);
     swapInt(b+left,b+j);
     quick_argsort(a,b,left,j-1);
     quick_argsort(a,b,j+1,right);
 }
 
-static int * argsort(FLOAT *a, int size)
+static int * argsort(double *a, int size)
 {
 
     /* copy a to keep a unchanged */
-    FLOAT *acpy = (FLOAT *) malloc(sizeof(FLOAT)*size);
-    memcpy(acpy, a, sizeof(FLOAT)*size);
+    double *acpy = (double *) malloc(sizeof(double)*size);
+    memcpy(acpy, a, sizeof(double)*size);
 
     int *ind = (int*) malloc(sizeof(int)*size);
     int i;
@@ -96,7 +102,7 @@ static enum dim choose_dim()
 }
 */
 
-FLOAT * get_data_array(kdtree_t tree, enum dim d)
+double * get_data_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
@@ -135,14 +141,14 @@ int * get_arg_array(kdtree_t tree, enum dim d)
 static void partition(kdtree_t tree, int left, int right, enum dim d_key,
                       enum dim d_part)
 {
-    FLOAT * vals;
+    double * vals;
     int * args;
     vals = get_data_array(tree, d_key);
     args = get_arg_array(tree, d_part);
 
     int med_index = median(left,right);
     int med_arg = *(get_arg_array(tree,d_key) + med_index);
-    FLOAT key = vals[med_arg];
+    double key = vals[med_arg];
 
     int split = med_index - left;
 
@@ -213,6 +219,7 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 
     /* 
      * Base cases: subtree of size 1, 2 or 3
+     * Skip partitioning step
      */
 
     switch(right-left) {
@@ -275,7 +282,7 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(int size, FLOAT x[], FLOAT y[], FLOAT z[])
+kdtree_t tree_construct(int size, double x[], double y[], double z[])
 {
     kdtree_t tree;
     tree.size = size;

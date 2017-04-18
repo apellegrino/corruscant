@@ -2,13 +2,25 @@ import numpy as np
 import tpcf
 from matplotlib import pyplot as plt
 
-dsize = 2000
+def uniform_sphere(N, dim):
+    data = []
+    center = np.array([.5,.5,.5])
+
+    while N > 0:
+        point = np.random.rand(3)
+        norm2 = np.sum(np.multiply(point-center,point-center))
+        if norm2 < .25:
+            data.append(point)
+            N -= 1
+
+    return np.array(data).T
+        
+dsize = 1000
 rsize = dsize*20
 
-#X_data = np.vstack([np.random.rand(dsize/2,3),np.random.rand(dsize/2,3)*.25])
 np.random.seed(3)
-X_data = np.random.rand(dsize,3).T
-X_random = np.random.rand(rsize,3).T
+X_data = uniform_sphere(dsize,3)
+X_random = uniform_sphere(rsize,3)
 
 N = 10
 gen = tpcf._jackknife(X_data, X_random, N=N)
