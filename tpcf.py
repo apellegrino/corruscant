@@ -40,6 +40,85 @@ kdlib.pair_count.argtypes = [
                             ctypes.c_double, # radius
                             ]
 
+# class Dataset:
+#     class Data:
+#         def __init__(self, type, dim1, dim2, dim3=None):
+# 
+#             if type == 'cartesian':
+#                 self.x = dim1
+#                 self.y = dim2
+#                 self.z = dim3
+#             else if type == '2d_spherical_polar':
+#                 self.az = 
+# 
+#     def __init__(self):
+# 
+#         self.datatype = 'none'
+#         self.data = None
+#         self.rand = None
+#         self.cos = None
+#         self.error_type = None
+#         self.error_bounds
+# 
+#     def add_cartesian(self, data, random):
+#         self.data = data
+#         self.rand = random
+#         self.datatype = 'cartesian'
+# 
+#     def add_2d_spherical(self, data, random):
+#         self.data = data
+#         self.rand = random
+#         self.datatype = '2d_spherical'
+# 
+#     def add_3d_spherical(self, data, random):
+#         self.data = data
+#         self.rand = random
+#         self.datatype = '3d_spherical'
+# 
+#     def set_cosmology(self, cos):
+#         self.cos = cos
+# 
+#     def coord_transform(self):
+#         if self.datatype = '3d_spherical':
+#             
+# 
+#     def sph_to_cart(self):
+#         if self.cos is None:
+#             raise InputError("Provide a cosmology with set_cosmology() before converting to cartesian coordinates")
+# 
+#         r = self.cos.comoving_distance(self.coord_redshift)
+# 
+#         if self.spherical_type == 'latitude':
+#             theta = np.pi / 2 - self.coord_el
+#         else: # polar
+#             theta = self.coord_el
+# 
+#         self.coord_x = r * np.sin(theta) * np.sin(phi)
+#         self.coord_y = r * np.sin(theta) * np.cos(phi)
+#         self.coord_z = r * np.cos(theta)
+
+# input: ra, dec in degrees, redshift
+# output: x, y, z
+def sph_to_cart(data):
+    ra = data[0]
+    dec = data[1]
+    redshift = data[2]
+
+    from astropy import cosmology
+
+    H_0 = 100.0
+    Om0 = .237
+    Ode0 = .763
+
+    cos = cosmology.LambdaCDM(H_0, Om0, Ode0)
+    r = cos.comoving_distance(redshift)
+
+    x = r * np.cos(np.pi / 180. * dec) * np.cos(np.pi / 180. * ra)
+    y = r * np.cos(np.pi / 180. * dec) * np.sin(np.pi / 180. * ra)
+    z = r * np.sin(np.pi / 180. * dec)
+
+    return np.array([x,y,z])
+
 def _unpack(data):
     #return tuple([np.require(row, requirements=reqs) for row in data])
     return tuple([np.copy(row) for row in data])
@@ -91,6 +170,80 @@ def _jackknife(data, random, N, dim=0):
         random_sub = np.concatenate([random[:,random[dim] < data_min],
                                     random[:,random[dim] > data_max]], axis=1)
 
+        yield data_sub, random_sub
+
+def cart_to_sph(data):
+    x = data[0]
+    y = data[1]
+    z = data[2]
+
+    offset = -np.sign(x)*(np.sign(y)+1)/2.+1
+
+    ra = np.arctan2(y,x)/np.pi * 180.
+    if ra < 0:
+        ra = ra + 360.
+
+    dec = np.sign(z) * np.arctan(np.sqrt(z*z/(x*x+y*y))) / np.pi * 180.
+
+    return ra, dec
+
+# user-defined boundaries for jackknife error
+# bounds is an array of boundaries, where each boundary defines a min and max
+# value for each coordinate e.g. [min_ra, max_ra, min_dec, max_dec]
+def _jackknife_bounds(data, random, bounds):
+    for b in bounds:
+        print b
+        
+        data_sub = []
+        random_sub = []
+    
+        for point in data.T:
+            ra, dec = cart_to_sph(point)
+            if not b[0] < ra < b[1]:
+                data_sub.append(point)
+                continue
+            if not b[2] < dec < b[3]:
+                data_sub.append(point)
+                continue
+
+        for point in random.T:
+            ra, dec = cart_to_sph(point)
+            if not b[0] < ra < b[1]:
+                random_sub.append(point)
+                continue
+            if not b[2] < dec < b[3]:
+                random_sub.append(point)
+                continue
+
+        data_sub = np.copy(np.array(data_sub).T)
+        random_sub = np.copy(np.array(random_sub).T)
+
+        print "%d out of %d" % (data_sub.shape[1], data.shape[1])
+        yield data_sub, random_sub
+
+# user-defined boundaries for field-to-field error
+def _ftf_bounds(data, random, bounds):
+    for b in bounds:
+        
+        data_sub = []
+        random_sub = []
+    
+        for point in data.T:
+            ra, dec = cart_to_sph(point)
+            if not bounds[0][0] < ra < bounds[0][1]: continue
+            if not bounds[1][0] < dec < bounds[1][1]: continue
+            data_sub.append(point)
+
+        for point in random.T:
+            ra, dec = cart_to_sph(point)
+            if not bounds[0][0] < ra < bounds[0][1]: continue
+            if not bounds[1][0] < dec < bounds[1][1]: continue
+            random_sub.append(point)
+
+        data_sub = np.copy(np.array(data_sub).T)
+        random_sub = np.copy(np.array(random_sub).T)
+
+        print data_sub.shape, random_sub.shape
         yield data_sub, random_sub
 
 def _ftf(data, random, N=10, dim=0):
@@ -169,9 +322,10 @@ def est_hamilton(dd,dr,rr):
 def est_standard(dd,dr,dsize,rsize):
     return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
-def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
-                xi_error_type=None, N_error=10, num_threads=4):
-#def pair_counts(data, rand, radii, **kwargs):
+def pair_counts(data, data_fields=None, rand, rand_fields=None, 
+                radii, xi_estimator_type="landy-szalay",
+                xi_error_type=None, N_error=10, num_threads=4,
+                bounds=None, datatype='cartesian'):
     """Given a set of 3D cartesian data points and random points, calculate the
     estimated two-point correlation function with error estimation.
 
@@ -213,6 +367,10 @@ def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
     data = validate_array(data)
     rand = validate_array(rand)
 
+    if datatype == 'spherical':
+        data = sph_to_cart(data)
+        rand = sph_to_cart(rand)
+
     data_tree = _make_tree(data)
     rand_tree = _make_tree(rand)
 
@@ -234,24 +392,36 @@ def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
     kdlib.destroy(data_tree)
     kdlib.destroy(rand_tree)
 
-    #error = np.array([np.inf] * len(radii-1))
     error = None
 
     if xi_error_type == "jackknife" or xi_error_type == "field-to-field":
         if xi_error_type == "jackknife":
-            gen = _jackknife(data, rand, N_error)
+
+            if bounds is None:
+                gen = _jackknife(data, rand, N_error)
+            else:
+                gen = _jackknife_bounds(data, rand, bounds)
+
         elif xi_error_type == "field-to-field":
-            gen = _ftf(data, rand, N_error)
+
+            if bounds is None:
+                gen = _ftf(data, rand, N_error)
+            else:
+                gen = _ftf_bounds(data, rand, bounds)
+
 
         error = np.zeros(len(radii)-1)
 
+        N_error = 0
         for data_subset, rand_subset in gen:
+            N_error += 1
+
             data_tree = _make_tree(data_subset)
             rand_tree = _make_tree(rand_subset)
 
-            dd_err = np.diff([_query_tree(data_tree, data, r, num_threads) for r in radii])
-            dr_err = np.diff([_query_tree(rand_tree, data, r, num_threads) for r in radii])
-            rr_err = np.diff([_query_tree(rand_tree, rand, r, num_threads) for r in radii])
+            dd_err = np.diff([_query_tree(data_tree, data_subset, r, num_threads) for r in radii])
+            dr_err = np.diff([_query_tree(rand_tree, data_subset, r, num_threads) for r in radii])
+            rr_err = np.diff([_query_tree(rand_tree, rand_subset, r, num_threads) for r in radii])
             
             if xi_estimator_type == "landy-szalay":
                 est_sub = est_landy_szalay(dd_err,dr_err,rr_err,data_subset.size,rand_subset.size)
@@ -281,7 +451,7 @@ def pair_counts(data, rand, radii, xi_estimator_type="landy-szalay",
                 "DR":dr_array,
                 "RR":rr_array,
                 "estimator":est,
-                "error":error,
+                "error":np.sqrt(error),
                 "xi_error_type":xi_error_type,
             }
     return output
