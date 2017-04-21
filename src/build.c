@@ -106,11 +106,11 @@ double * get_data_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
-        return tree.x_data;
+        return tree.data.x;
     case Y:
-        return tree.y_data;
+        return tree.data.y;
     case Z:
-        return tree.z_data;
+        return tree.data.z;
     default:
         return NULL;
     }
@@ -121,11 +121,11 @@ int * get_arg_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
-        return tree.x_arg;
+        return tree.arg_data.x;
     case Y:
-        return tree.y_arg;
+        return tree.arg_data.y;
     case Z:
-        return tree.z_arg;
+        return tree.arg_data.z;
     default:
         return NULL;
     }
@@ -193,20 +193,41 @@ enum dim inline next_dim(enum dim d)
     return (d+1)%3;
 }
 
-void destroy(kdtree_t * t)
+void destroy(kdtree_t t)
 {
-    free(t->node_data);
+    free(t.node_data);
+
+    // Have these already been freed?
+    //free(t.data.x);
+    //free(t.data.y);
+    //free(t.data.z);
+}
+
+inline void set_id(node_t * node, int id)
+{
+    node->flags |= (ID_MASK & id << 2);
+}
+
+inline void set_lchild(node_t * node)
+{
+    node->flags |= HAS_LCHILD;
+}
+
+inline void set_rchild(node_t * node)
+{
+    node->flags |= HAS_RCHILD;
 }
 
 void build(kdtree_t tree, int ind, int left, int right, enum dim d)
 {
     double *x, *y, *z;
-    int med, med_arg;
+    int *ids;
+    int med, med_arg, this_id;
 
     node_t * parent = tree.node_data + ind;
     parent->flags = 0;
 
-    x = tree.x_data; y = tree.y_data; z = tree.z_data;
+    x = tree.data.x; y = tree.data.y; z = tree.data.z;
 
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = median(left,right);
@@ -217,6 +238,12 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     /* this node is the median */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
 
+    ids = tree.field_data;
+    if (ids != NULL) {
+        this_id = ids[med_arg];
+        set_id(parent, this_id);
+    }
+
     /* 
      * Base cases: subtree of size 1, 2 or 3
      * Skip partitioning step
@@ -226,12 +253,12 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     case 0: /* array length 1, no children */
         return;
     case 1: /* array length 2, one child */
-        parent->flags |= HAS_LCHILD;
+        set_lchild(parent);
         build(tree, left_child(ind), left,left,d);
         return;
     case 2: /* array length 3, two children */
-        parent->flags |= HAS_LCHILD;
-        parent->flags |= HAS_RCHILD;
+        set_lchild(parent);
+        set_rchild(parent);
         build(tree, left_child(ind), left,left,d);
         build(tree, right_child(ind), right,right,d);
         return;
@@ -257,8 +284,8 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
         break;
     }
 
-    parent->flags |= HAS_LCHILD;
-    parent->flags |= HAS_RCHILD;
+    set_lchild(parent);
+    set_rchild(parent);
     build(tree, left_child(ind), left,med-1,next_dim(d));
     build(tree, right_child(ind), med+1,right,next_dim(d));
 
@@ -282,23 +309,45 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(int size, double x[], double y[], double z[])
+array3d_t form_array(double *x, double *y, double *z, int size)
+{
+    array3d_t data;
+    data.x = x;
+    data.y = y;
+    data.z = z;
+    data.size = size;
+    return data;
+}
+
+argarray3d_t array3d_argsort(array3d_t data)
+{
+    argarray3d_t arg;
+    arg.x = argsort(data.x, data.size);
+    arg.y = argsort(data.y, data.size);
+    arg.z = argsort(data.z, data.size);
+    arg.size = data.size;
+    return arg;
+}
+
+kdtree_t tree_construct(array3d_t data, int * fid)
 {
     kdtree_t tree;
-    tree.size = size;
-    tree.memsize = pow2ceil(size);
+    tree.size = data.size;
+    tree.memsize = pow2ceil(data.size);
     tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
-    tree.x_data = x; tree.y_data = y; tree.z_data = z;
+
+    tree.data = data;
+    tree.field_data = fid;
 
     /* Argsort the inputs */
-    tree.x_arg = argsort(x, size);
-    tree.y_arg = argsort(y, size);
-    tree.z_arg = argsort(z, size);
+    tree.arg_data = array3d_argsort(tree.data);
 
-    build(tree, 1, 0, size-1, X );
+    build(tree, 1, 0, data.size-1, X );
 
     /* argsort key arrays are only necessary for building the tree */
-    free(tree.x_arg); free(tree.y_arg); free(tree.z_arg);
+    free(tree.arg_data.x);
+    free(tree.arg_data.y);
+    free(tree.arg_data.z);
 
     return tree;
 }

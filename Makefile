@@ -31,4 +31,4 @@ mkdirs:
 
 .PHONY: clean
 clean:
-	rm -f ${OBJ}/*.o ${BIN}/bench ${BIN}/*.so tpcf/*.pyc ${BIN_NAMES}
+	rm -f ${OBJ}/*.o ${BIN}/bench ${BIN}/*.so *.pyc ${BIN_NAMES}
