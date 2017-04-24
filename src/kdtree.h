@@ -9,9 +9,13 @@
 
 #define KDTREE_H
 
-#define HAS_LCHILD 1<<0
-#define HAS_RCHILD 1<<1
-#define ID_MASK 0b1111111100
+#define HAS_LCHILD (1<<0)
+#define HAS_RCHILD (1<<1)
+//#define ID_MASK 0b1111111100
+
+// bits 2 through 10 (indexing from 0)
+#define ID_MASK (((1<<9) - 1) << 2)
+#define ID_MASK_MAXINT 30
 
 enum dim { X=0, Y=1, Z=2 };
 
@@ -21,10 +25,16 @@ typedef struct node {
     unsigned short flags;
 } node_t;
 
+typedef struct field_counter {
+    unsigned long long array[ID_MASK_MAXINT];
+} field_counter_t;
+
+// array of data points. Never changes.
 typedef struct array3d {
     double *x; 
     double *y; 
     double *z;
+    int *fields;
     int size;
 } array3d_t;
 
@@ -41,15 +51,14 @@ typedef struct kdtree {
     int memsize;
     array3d_t data;
     argarray3d_t arg_data;
-    int * field_data;
 } kdtree_t;
 
 int left_child(int);
 int right_child(int);
 enum dim next_dim(enum dim);
 
-array3d_t form_array(double *, double *, double *, int);
-kdtree_t tree_construct(array3d_t, int *);
+array3d_t form_array(double *, double *, double *, int *, int);
+kdtree_t tree_construct(array3d_t);
 
-long long pair_count_jackknife(kdtree_t, array3d_t, double, int, int);
-long long pair_count_noerr(kdtree_t, array3d_t, double, int);
+long long * pair_count_jackknife(kdtree_t, array3d_t, double, int);
+long long * pair_count_noerr(kdtree_t, array3d_t, double, int);

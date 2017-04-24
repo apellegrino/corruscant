@@ -1,5 +1,6 @@
 CC= gcc
 CFLAGS= -O2 -Wall
+#CFLAGS= -g -Wall
 BIN_NAMES= bench libkdtree.so
 SRC= src
 BIN= bin

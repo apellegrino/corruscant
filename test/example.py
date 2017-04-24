@@ -19,7 +19,7 @@ results = tpcf.pair_counts(X_data, X_random, radii,
                            xi_error_type='jackknife', num_threads=2,
                            N_fields=2)
 
-print "------- Using Landy-Szalay estimator, field-to-field error -------"
+print "------- Using Landy-Szalay estimator, jackknife error -------"
 
 print "r = "
 print radii

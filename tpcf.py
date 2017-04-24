@@ -10,6 +10,7 @@ class array3d(ctypes.Structure):
         ("x",ctypes.POINTER(ctypes.c_double)),
         ("y",ctypes.POINTER(ctypes.c_double)),
         ("z",ctypes.POINTER(ctypes.c_double)),
+        ("fields",ctypes.POINTER(ctypes.c_int)),
         ("size",ctypes.c_int),
         ]
 
@@ -28,7 +29,6 @@ class kdtree(ctypes.Structure):
         ("memsize",ctypes.c_int),
         ("data",array3d),
         ("arg_data",argarray3d),
-        ("field_data",ctypes.POINTER(ctypes.c_int)),
         ]
 
 path_here = abspath(__file__)
@@ -36,33 +36,47 @@ path_dir = dirname(path_here)
 kdlib = ctypes.CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
-kdlib.tree_construct.argtypes = [
-                            array3d,
-                            ctypes.POINTER(ctypes.c_int),
-                            ]
+kdlib.tree_construct.argtypes = [array3d]
 
 kdlib.form_array.restype = array3d
 kdlib.form_array.argtypes = [
                             ctypes.POINTER(ctypes.c_double), # x
                             ctypes.POINTER(ctypes.c_double), # y
                             ctypes.POINTER(ctypes.c_double), # z
+                            ctypes.POINTER(ctypes.c_int), # field ids
                             ctypes.c_int, #size
                             ]
 
 kdlib.destroy.restype = None
-kdlib.destroy.argtypes = [
-                        kdtree
-                        ] # tree to destroy
+kdlib.destroy.argtypes = [kdtree]
 
-kdlib.pair_count_jackknife.restype = ctypes.c_longlong # num. of pair counts
+#                                    array w/ numbers of pair counts
+kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+
 kdlib.pair_count_jackknife.argtypes = [
                             kdtree, # tree to query
                             array3d, # data to query with
                             ctypes.c_double, # radius
-                            ctypes.c_int, # field id
                             ctypes.c_int, # num_threads
                             ]
 
+kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+
+kdlib.pair_count_ftf.argtypes = [
+                            kdtree, # tree to query
+                            array3d, # data to query with
+                            ctypes.c_double, # radius
+                            ctypes.c_int, # num_threads
+                            ]
+
+kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+
+kdlib.pair_count_noerr.argtypes = [
+                            kdtree, # tree to query
+                            array3d, # data to query with
+                            ctypes.c_double, # radius
+                            ctypes.c_int, # num_threads
+                            ]
 # class Dataset:
 #     class Data:
 #         def __init__(self, type, dim1, dim2, dim3=None):
@@ -143,34 +157,52 @@ def sph_to_cart(data):
     return np.array([x,y,z])
 
 def _unpack(data):
-    #return tuple([np.require(row, requirements=reqs) for row in data])
     return tuple([np.copy(row) for row in data])
 
-def _make_tree(data, fields):
-
+# array breaks when returned from this function ???
+def make_clike_array(data, fields=None):
     # tree_construct is inefficient for sorted data due to quicksort.
     # Maybe use mergesort instead
     #np.random.shuffle(data.T)
     data_x, data_y, data_z = _unpack(data)
 
+    if fields is None:
+        fields = np.zeros_like(data_z)
+    # numpy will use 64-bit ints unless otherwise specified
+    # type change must happen on ITS OWN LINE!
+    fields = fields.astype('int32')
+
     array = kdlib.form_array(
                         data_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
                         ctypes.c_int(data.shape[1])
                         )
+    return array
 
-    c_int_p = ctypes.POINTER(ctypes.c_int)
+def _make_tree(data, fields):
+    # tree_construct is inefficient for sorted data due to quicksort.
+    # Maybe use mergesort instead
+    #np.random.shuffle(data.T)
+    data_x, data_y, data_z = _unpack(data)
 
     if fields is None:
-        tree = kdlib.tree_construct(array,None)
-    else:
-        # type change must happen on ITS OWN LINE!
-        fields = fields.astype('int32')
-        tree = kdlib.tree_construct(
-                        array,
-                        fields.ctypes.data_as(c_int_p),
+        fields = np.zeros_like(data_x)
+    # numpy will use 64-bit ints unless otherwise specified
+    # type change must happen on ITS OWN LINE!
+    fields = fields.astype('int32')
+
+    array = kdlib.form_array(
+                        data_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                        data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                        data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+                        ctypes.c_int(data.shape[1])
                         )
+    #array = make_clike_array(data,fields)
+
+    tree = kdlib.tree_construct(array)
 
     return tree
 
@@ -311,22 +343,32 @@ def _ftf(data, random, N=10, dim=0):
         random_sub = random_sub[:,random_sub[dim] < data_max]
         yield data_sub, random_sub
 
-def _query_tree(tree, data, radius, num_threads, id, errtype):
+def _query_tree(tree, data, radius, num_threads, errtype, fields=None):
     data_x, data_y, data_z = _unpack(data)
+
+    if fields is None:
+        fields = np.zeros_like(data_x)
+    # numpy will use 64-bit ints unless otherwise specified
+    # type change must happen on ITS OWN LINE!
+    fields = fields.astype('int32')
 
     array = kdlib.form_array(
                         data_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
                         ctypes.c_int(data.shape[1])
                         )
+    #array = make_clike_array(data, fields)
+    counts = None
+    if errtype == 'jackknife':
+        counts = kdlib.pair_count_jackknife(tree,array,radius,num_threads)
+    elif errtype == 'field-to-field':
+        counts = kdlib.pair_count_ftf(tree,array,radius,num_threads)
+    else:
+        counts = kdlib.pair_count_noerr(tree,array,radius,num_threads)
 
-    #count = None
-    #if errtype == 'jackknife':
-    #    count = kdlib.pair_count_jackknife(tree,array,radius,id,num_threads)
-    count = kdlib.pair_count_jackknife(tree,array,radius,id,num_threads)
-
-    return count
+    return counts
 
 class InputError:
     def __init__(self, value):
@@ -414,12 +456,16 @@ def pair_counts(data, rand, radii,
     data_tree = _make_tree(data, data_fields)
     rand_tree = _make_tree(rand, rand_fields)
 
-    dd_array = np.diff([_query_tree(data_tree, data, r, num_threads, -1, None) for r in radii])
-    dr_array = np.diff([_query_tree(rand_tree, data, r, num_threads, -1, None) for r in radii])
+    dd_array = np.diff([_query_tree(data_tree, data, r, num_threads, None) for r in radii], axis=0)
+    dd_array = dd_array[:,0]
+
+    dr_array = np.diff([_query_tree(rand_tree, data, r, num_threads, None) for r in radii], axis=0)
+    dr_array = dr_array[:,0]
 
     rr_array = None
     if not xi_estimator_type == "standard":
-        rr_array = np.diff([_query_tree(rand_tree, rand, r, num_threads, -1, None) for r in radii])
+        rr_array = np.diff([_query_tree(rand_tree, rand, r, num_threads, None) for r in radii], axis=0)
+        rr_array = rr_array[:,0]
 
     if xi_estimator_type == "landy-szalay":
         est = est_landy_szalay(dd_array,dr_array,rr_array,data.size,rand.size)
@@ -433,34 +479,36 @@ def pair_counts(data, rand, radii,
     if xi_error_type == "jackknife" or xi_error_type == "field-to-field":
 
         error = np.zeros(len(radii)-1)
+        dd_err = np.diff([_query_tree(data_tree, data, r, num_threads, xi_error_type) for r in radii], axis=0)
+        dd_err = dd_err[:,:N_fields+1]
+        dr_err = np.diff([_query_tree(rand_tree, data, r, num_threads, xi_error_type) for r in radii], axis=0)
+        dr_err = dr_err[:,:N_fields+1]
+        rr_err = np.diff([_query_tree(rand_tree, rand, r, num_threads, xi_error_type) for r in radii], axis=0)
+        rr_err = rr_err[:,:N_fields+1]
 
-        for field_id in range(1,N_fields+1):
+        for sub_i in range(1,N_fields+1):
+            this_dd_err = dd_err[:,sub_i]
+            print this_dd_err
+            this_dr_err = dr_err[:,sub_i]
+            this_rr_err = rr_err[:,sub_i]
 
-            data_sub = [ ]
-            for i,id in enumerate(data_fields):
-                if id == field_id: continue
-                data_sub.append(data[:,i])
-            data_sub = np.array(data_sub).T
-
-            rand_sub = [ ]
-            for i,id in enumerate(rand_fields):
-                if id == field_id: continue
-                rand_sub.append(rand[:,i])
-            rand_sub = np.array(rand_sub).T
-
-            dd_err = np.diff([_query_tree(data_tree, data_sub, r, num_threads, field_id, xi_error_type) for r in radii])
-            dr_err = np.diff([_query_tree(rand_tree, data_sub, r, num_threads, field_id, xi_error_type) for r in radii])
-            rr_err = np.diff([_query_tree(rand_tree, rand_sub, r, num_threads, field_id, xi_error_type) for r in radii])
-            
+            if xi_error_type == "jackknife":
+                nd = data_fields[data_fields != sub_i].size
+                nr = rand_fields[rand_fields != sub_i].size
+            elif xi_error_type == "field-to-field":
+                nd = data_fields[data_fields == sub_i].size
+                nr = rand_fields[rand_fields == sub_i].size
+       
+            print nd, nr
             if xi_estimator_type == "landy-szalay":
-                est_sub = est_landy_szalay(dd_err,dr_err,rr_err,data_sub.shape[1],rand_sub.shape[1])
+                est_sub = est_landy_szalay(this_dd_err,this_dr_err,this_rr_err,nd,nr)
             elif xi_estimator_type == "hamilton":
-                est_sub = est_hamilton(dd_err,dr_err,rr_err)
+                est_sub = est_hamilton(this_dd_err,this_dr_err,this_rr_err)
             elif xi_estimator_type == "standard":
-                est_sub = est_standard(dd_err,dr_err,data_sub.shape[1],rand_sub.shape[1])
+                est_sub = est_standard(this_dd_err,this_dr_err,nd,nr)
 
             diff = est - est_sub
-            error += np.divide(dr_err.astype("float64"),dr_array)*diff*diff
+            error += np.divide(this_dr_err.astype("float64"),dr_array)*diff*diff
 
         if xi_error_type == "field-to-field":
             error /= float(N_error - 1)

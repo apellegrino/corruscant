@@ -205,7 +205,7 @@ void destroy(kdtree_t t)
 
 inline void set_id(node_t * node, int id)
 {
-    node->flags |= (ID_MASK & id << 2);
+    node->flags |= ID_MASK & (id << 2);
 }
 
 inline void set_lchild(node_t * node)
@@ -238,7 +238,7 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     /* this node is the median */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
 
-    ids = tree.field_data;
+    ids = tree.data.fields;
     if (ids != NULL) {
         this_id = ids[med_arg];
         set_id(parent, this_id);
@@ -309,13 +309,15 @@ static int pow2ceil(int x)
     return x;
 }
 
-array3d_t form_array(double *x, double *y, double *z, int size)
+array3d_t form_array(double *x, double *y, double *z, int *fields, int size)
 {
     array3d_t data;
     data.x = x;
     data.y = y;
     data.z = z;
+    data.fields = fields;
     data.size = size;
+
     return data;
 }
 
@@ -329,7 +331,7 @@ argarray3d_t array3d_argsort(array3d_t data)
     return arg;
 }
 
-kdtree_t tree_construct(array3d_t data, int * fid)
+kdtree_t tree_construct(array3d_t data)
 {
     kdtree_t tree;
     tree.size = data.size;
@@ -337,7 +339,6 @@ kdtree_t tree_construct(array3d_t data, int * fid)
     tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
 
     tree.data = data;
-    tree.field_data = fid;
 
     /* Argsort the inputs */
     tree.arg_data = array3d_argsort(tree.data);

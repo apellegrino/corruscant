@@ -9,9 +9,39 @@
 #endif
 
 static double *_x_query, *_y_query, *_z_query;
+static int *_field_query;
 static node_t * _tree_data;
-static int _field, _include;
+static int _include;
+static int _use_err;
 
+static void count_node(FLOAT n, FLOAT rsq, field_counter_t * counter, int this_field, int query_field)
+{
+    int i;
+    if (n < rsq) {
+        // no error
+        if(!_use_err) {
+            counter->array[0]++;
+            return;
+        }
+        // field-to-field error -- increment counter for this field
+        if (_include) {
+            if (this_field == query_field) (counter->array[this_field])++;
+        }
+        else { //jackknife error -- increment all but this field
+            // needs vectorization?
+            for(i=0; i<ID_MASK_MAXINT; i++) { (counter->array[i])++; }
+
+            /* 
+             * un-count this pair for the querying point field or that of the
+             * point on the tree, but don't double count if they have the same
+             * field
+             */
+            (counter->array[this_field])--;
+            if (this_field != query_field) (counter->array[query_field])--;
+        }
+    }
+    return;
+}
 static inline int min(int a, int b)
 {
     return a < b ? a : b;
@@ -41,17 +71,16 @@ inline int has_rchild(node_t p)
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.
  */
-static int radius(int pi, enum dim d, int qi, FLOAT r)
+static void radius(int pi, enum dim d, int qi, FLOAT r, field_counter_t * counter)
 {
-    int i;
+    //int i;
     FLOAT x, y, z;
     node_t p = *(_tree_data+pi);
 
     int this_field = get_field(p);
     
-    int count_this = (this_field == _field) ^ (_include == 0);
-
     x = (FLOAT) _x_query[qi]; y = (FLOAT) _y_query[qi]; z = (FLOAT) _z_query[qi];
+    int query_field = _field_query[qi];
 
     FLOAT rsq, dx, dy, dz;
     FLOAT pos_upper = 0.0, pos_lower = 0.0, point = 0.0;
@@ -62,12 +91,14 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
     FLOAT n = norm2(dx,dy,dz);
     if( !has_lchild(p) ) { /* no children */
 
-        return (n < rsq && count_this);
+        count_node(n, rsq, counter, this_field, query_field);
+        return;
 
     } else if ( !has_rchild(p) ) { /* one child */
 
-        return (n < rsq && count_this) +
-                radius(left_child(pi),next_dim(d),qi,r);
+        count_node(n, rsq, counter, this_field, query_field);
+        radius(left_child(pi),next_dim(d),qi,r,counter);
+        return;
 
     } else { /* two children */
         switch(d) {
@@ -89,15 +120,15 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
         }
 
         if (pos_upper < point) {
-            i=radius(left_child(pi),next_dim(d),qi,r);
+            radius(left_child(pi),next_dim(d),qi,r,counter);
         } else if (pos_lower > point) {
-            i=radius(right_child(pi),next_dim(d),qi,r);
+            radius(right_child(pi),next_dim(d),qi,r,counter);
         } else {
-            i = (n < rsq && count_this) +
-                radius(left_child(pi),next_dim(d),qi,r) +
-                radius(right_child(pi),next_dim(d),qi,r);
+            count_node(n, rsq, counter, this_field, query_field);
+            radius(left_child(pi),next_dim(d),qi,r,counter);
+            radius(right_child(pi),next_dim(d),qi,r,counter);
         }
-        return i;
+        return;
     }
     
 }
@@ -105,9 +136,9 @@ static int radius(int pi, enum dim d, int qi, FLOAT r)
 typedef struct shared_args {
     int n;
     int node_start;
-    int node_stop;
+    int node_stop; // actually one after the last index to stop at
     int num_threads;
-    long long *sum;
+    field_counter_t ** counters;
     FLOAT r;
 } shared_args_t;
 
@@ -137,10 +168,10 @@ void * twopoint_wrap(void *voidargs)
     int rank = targs->thread_rank;
     assign_idx(rank, args->num_threads, args->n, &start, &stop);
 
-    args->sum[rank] = 0;
-
+    args->counters[rank] = (field_counter_t *) calloc(1, sizeof(field_counter_t));
+    
     for(i=start; i<stop; i++) {
-        args->sum[rank] += radius(1, 0, i, args->r);
+        radius(1, 0, i, args->r, args->counters[rank]);
     }
 
     return NULL;
@@ -151,24 +182,27 @@ void * twopoint_wrap(void *voidargs)
  * radius r of each of the (x,y,z) points in the array. Result may easily
  * exceed the size of a 32-bit int, so we return a long long.
  */
-long long pair_count(kdtree_t tree, array3d_t data,
-                     double r, int field, int num_threads)
+static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_threads)
 {
+    int i, j;
     _tree_data = tree.node_data;
     _x_query = data.x; _y_query = data.y; _z_query = data.z;
-    _field = field;
+    _field_query = data.fields;
 
-    //if(num_threads > 2<<16) exit(1);
-
+    if(num_threads > 1<<16) {
+        printf("More than %d threads!\n", 1<<16);
+        exit(1);
+    }
+    
     shared_args_t ss;
+    ss.counters = (field_counter_t **) malloc(num_threads * sizeof(field_counter_t *));
     ss.n = data.size;
     ss.r = r;
     ss.num_threads = num_threads;
-    ss.sum = (long long *)calloc(num_threads, sizeof(long long));
     
     thread_args_t targs[num_threads];
 
-    int i;
+    // give each thread a unique index, like an MPI worker
     for(i=0; i<num_threads; i++) {
         targs[i].shared_args_p = &ss;
         targs[i].thread_rank = i;
@@ -176,31 +210,45 @@ long long pair_count(kdtree_t tree, array3d_t data,
 
     pthread_t threads[num_threads];
 
-    long long result = 0;
+    long long * results = calloc(ID_MASK_MAXINT, sizeof(long long));
 
+    // create threads
     for(i=0; i<num_threads; i++) 
         pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
 
+    // join threads, sum the array for each thread into one array
     for(i=0; i<num_threads; i++) {
         pthread_join(threads[i], NULL);
-        result += ss.sum[i];
+        for(j=0; j<ID_MASK_MAXINT; j++) {
+            results[j] += ((ss.counters[i])->array)[j];
+        }
+        free(ss.counters[i]);
     }
 
-    return result;
+    return results;
 }
 
-long long pair_count_jackknife(kdtree_t tree, array3d_t data,
-                               double r, int field, int num_threads)
+long long * pair_count_jackknife(kdtree_t tree, array3d_t data,
+                               double r, int num_threads)
 {
-    // exclude nodes WITHOUT this id
+    // count nodes WITHOUT this id
     _include = 0;
-    return pair_count(tree, data, r, field, num_threads);
+    _use_err = 1;
+    return pair_count(tree, data, r, num_threads);
 }
 
-long long pair_count_ftf(kdtree_t tree, array3d_t data,
-                         double r, int field, int num_threads)
+long long * pair_count_ftf(kdtree_t tree, array3d_t data,
+                         double r, int num_threads)
 {
     // count nodes WITH this id
     _include = 1;
-    return pair_count(tree, data, r, field, num_threads);
+    _use_err = 1;
+    return pair_count(tree, data, r, num_threads);
+}
+
+long long * pair_count_noerr(kdtree_t tree, array3d_t data,
+                            double r, int num_threads)
+{
+    _use_err = 0;
+    return pair_count(tree, data, r, num_threads);
 }

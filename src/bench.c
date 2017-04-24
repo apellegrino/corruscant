@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
     double *x = (double *)malloc(n*sizeof(double));
     double *y = (double *)malloc(n*sizeof(double));
     double *z = (double *)malloc(n*sizeof(double));
+    int *f = (int *)malloc(n*sizeof(int));
 
     srand(2);
 
@@ -29,26 +30,31 @@ int main(int argc, char *argv[]) {
         x[i] = ((double) rand())/RAND_MAX;
         y[i] = ((double) rand())/RAND_MAX;
         z[i] = ((double) rand())/RAND_MAX;
+        f[i] = 0;
     }
 
     array3d_t data;
     data.x = x;
     data.y = y;
     data.z = z;
+    data.fields = f;
     data.size = n;
     
     printf("Generated random data...\n");
-    kdtree_t data_tree = tree_construct(data, NULL);
+    kdtree_t data_tree = tree_construct(data);
     printf("Constructed k-d tree...\n");
 
     double radius = 0.05;
     struct timespec start, finish;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    long long output = pair_count_jackknife(data_tree, data, radius, -1, num_threads);
+    long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
-
-    printf("Sum: %lld\n", output);
+    for(i=0; i<ID_MASK_MAXINT; i++) {
+        printf("%lld ", output[i]);
+    }
+    printf("\n");
+    //printf("Sum: %lld\n", output);
     printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)
                                 + (finish.tv_nsec-start.tv_nsec)/1e9);
     printf("A node is %d bytes.\n", nodesize());
