@@ -16,21 +16,22 @@ static int _use_err;
 
 static void count_node(FLOAT n, FLOAT rsq, field_counter_t * counter, int this_field, int query_field)
 {
-    int i;
     if (n < rsq) {
+        // index 0 represents whole dataset
+        counter->array[0]++;
+
         // no error
-        if(!_use_err) {
-            counter->array[0]++;
-            return;
-        }
-        // field-to-field error -- increment counter for this field
+        if(!_use_err) return;
+
+        // field-to-field error -- increment counter for this_field if it
+        // coincides with query_field
         if (_include) {
             if (this_field == query_field) (counter->array[this_field])++;
         }
-        else { //jackknife error -- increment all but this field
+        else { //jackknife error -- increment all but this_field and query_field
+            int i;
             // needs vectorization?
-            for(i=0; i<ID_MASK_MAXINT; i++) { (counter->array[i])++; }
-
+            for(i=1; i<counter->size; i++) { (counter->array[i])++; }
             /* 
              * un-count this pair for the querying point field or that of the
              * point on the tree, but don't double count if they have the same
@@ -137,6 +138,7 @@ typedef struct shared_args {
     int n;
     int node_start;
     int node_stop; // actually one after the last index to stop at
+    int num_fields;
     int num_threads;
     field_counter_t ** counters;
     FLOAT r;
@@ -168,8 +170,11 @@ void * twopoint_wrap(void *voidargs)
     int rank = targs->thread_rank;
     assign_idx(rank, args->num_threads, args->n, &start, &stop);
 
-    args->counters[rank] = (field_counter_t *) calloc(1, sizeof(field_counter_t));
-    
+    field_counter_t * new_counter = malloc(sizeof(field_counter_t));
+    new_counter->array = calloc(args->num_fields+1, sizeof(long long));
+    new_counter->size = args->num_fields+1;
+    args->counters[rank] = new_counter;
+   
     for(i=start; i<stop; i++) {
         radius(1, 0, i, args->r, args->counters[rank]);
     }
@@ -188,6 +193,7 @@ static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_t
     _tree_data = tree.node_data;
     _x_query = data.x; _y_query = data.y; _z_query = data.z;
     _field_query = data.fields;
+    int num_fields = data.num_fields;
 
     if(num_threads > 1<<16) {
         printf("More than %d threads!\n", 1<<16);
@@ -198,6 +204,7 @@ static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_t
     ss.counters = (field_counter_t **) malloc(num_threads * sizeof(field_counter_t *));
     ss.n = data.size;
     ss.r = r;
+    ss.num_fields = num_fields;
     ss.num_threads = num_threads;
     
     thread_args_t targs[num_threads];
@@ -210,7 +217,7 @@ static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_t
 
     pthread_t threads[num_threads];
 
-    long long * results = calloc(ID_MASK_MAXINT, sizeof(long long));
+    long long * results = calloc(num_fields+1, sizeof(long long));
 
     // create threads
     for(i=0; i<num_threads; i++) 
@@ -219,19 +226,18 @@ static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_t
     // join threads, sum the array for each thread into one array
     for(i=0; i<num_threads; i++) {
         pthread_join(threads[i], NULL);
-        for(j=0; j<ID_MASK_MAXINT; j++) {
+        for(j=0; j<num_fields+1; j++) {
             results[j] += ((ss.counters[i])->array)[j];
         }
         free(ss.counters[i]);
     }
-
     return results;
 }
 
 long long * pair_count_jackknife(kdtree_t tree, array3d_t data,
                                double r, int num_threads)
 {
-    // count nodes WITHOUT this id
+    // exclude only the field of the querying point
     _include = 0;
     _use_err = 1;
     return pair_count(tree, data, r, num_threads);
@@ -240,7 +246,7 @@ long long * pair_count_jackknife(kdtree_t tree, array3d_t data,
 long long * pair_count_ftf(kdtree_t tree, array3d_t data,
                          double r, int num_threads)
 {
-    // count nodes WITH this id
+    // include only the field of the querying point
     _include = 1;
     _use_err = 1;
     return pair_count(tree, data, r, num_threads);

@@ -11,6 +11,7 @@ class array3d(ctypes.Structure):
         ("y",ctypes.POINTER(ctypes.c_double)),
         ("z",ctypes.POINTER(ctypes.c_double)),
         ("fields",ctypes.POINTER(ctypes.c_int)),
+        ("num_fields",ctypes.c_int),
         ("size",ctypes.c_int),
         ]
 
@@ -181,7 +182,7 @@ def make_clike_array(data, fields=None):
                         )
     return array
 
-def _make_tree(data, fields):
+def _make_tree(data, fields, N_fields=1):
     # tree_construct is inefficient for sorted data due to quicksort.
     # Maybe use mergesort instead
     #np.random.shuffle(data.T)
@@ -198,7 +199,8 @@ def _make_tree(data, fields):
                         data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-                        ctypes.c_int(data.shape[1])
+                        ctypes.c_int(N_fields),
+                        ctypes.c_int(data.shape[1]),
                         )
     #array = make_clike_array(data,fields)
 
@@ -343,9 +345,8 @@ def _ftf(data, random, N=10, dim=0):
         random_sub = random_sub[:,random_sub[dim] < data_max]
         yield data_sub, random_sub
 
-def _query_tree(tree, data, radius, num_threads, errtype, fields=None):
+def _query_tree(tree, data, radius, num_threads, errtype, fields=None, N_fields=0):
     data_x, data_y, data_z = _unpack(data)
-
     if fields is None:
         fields = np.zeros_like(data_x)
     # numpy will use 64-bit ints unless otherwise specified
@@ -357,8 +358,10 @@ def _query_tree(tree, data, radius, num_threads, errtype, fields=None):
                         data_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         data_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                         fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-                        ctypes.c_int(data.shape[1])
+                        ctypes.c_int(N_fields),
+                        ctypes.c_int(data.shape[1]),
                         )
+
     #array = make_clike_array(data, fields)
     counts = None
     if errtype == 'jackknife':
@@ -368,7 +371,7 @@ def _query_tree(tree, data, radius, num_threads, errtype, fields=None):
     else:
         counts = kdlib.pair_count_noerr(tree,array,radius,num_threads)
 
-    return counts
+    return counts[:N_fields+1]
 
 class InputError:
     def __init__(self, value):
@@ -453,51 +456,47 @@ def pair_counts(data, rand, radii,
         data = sph_to_cart(data)
         rand = sph_to_cart(rand)
 
-    data_tree = _make_tree(data, data_fields)
-    rand_tree = _make_tree(rand, rand_fields)
+    data_tree = _make_tree(data, data_fields, N_fields)
+    rand_tree = _make_tree(rand, rand_fields, N_fields)
 
-    dd_array = np.diff([_query_tree(data_tree, data, r, num_threads, None) for r in radii], axis=0)
-    dd_array = dd_array[:,0]
-
-    dr_array = np.diff([_query_tree(rand_tree, data, r, num_threads, None) for r in radii], axis=0)
-    dr_array = dr_array[:,0]
+    dd_array = np.diff([_query_tree(data_tree, data, r, num_threads, xi_error_type, data_fields, N_fields) for r in radii], axis=0)
+    dr_array = np.diff([_query_tree(rand_tree, data, r, num_threads, xi_error_type, data_fields, N_fields) for r in radii], axis=0)
 
     rr_array = None
     if not xi_estimator_type == "standard":
-        rr_array = np.diff([_query_tree(rand_tree, rand, r, num_threads, None) for r in radii], axis=0)
-        rr_array = rr_array[:,0]
+        rr_array = np.diff([_query_tree(rand_tree, rand, r, num_threads, xi_error_type, rand_fields, N_fields) for r in radii], axis=0)
 
+    dd_total = dd_array[:,0]
+    dr_total = dr_array[:,0]
+    rr_total = rr_array[:,0]
     if xi_estimator_type == "landy-szalay":
-        est = est_landy_szalay(dd_array,dr_array,rr_array,data.size,rand.size)
+        est = est_landy_szalay(dd_total,dr_total,rr_total,data.size,rand.size)
     elif xi_estimator_type == "hamilton":
-        est = est_hamilton(dd_array,dr_array,rr_array)
+        est = est_hamilton(dd_total,dr_total,rr_total)
     elif xi_estimator_type == "standard":
-        est = est_standard(dd_array,dr_array,data.size,rand.size)
-
+        est = est_standard(dd_total,dr_total,data.size,rand.size)
     error = None
 
     if xi_error_type == "jackknife" or xi_error_type == "field-to-field":
-
         error = np.zeros(len(radii)-1)
-        dd_err = np.diff([_query_tree(data_tree, data, r, num_threads, xi_error_type) for r in radii], axis=0)
-        dd_err = dd_err[:,:N_fields+1]
-        dr_err = np.diff([_query_tree(rand_tree, data, r, num_threads, xi_error_type) for r in radii], axis=0)
-        dr_err = dr_err[:,:N_fields+1]
-        rr_err = np.diff([_query_tree(rand_tree, rand, r, num_threads, xi_error_type) for r in radii], axis=0)
-        rr_err = rr_err[:,:N_fields+1]
+        
+        dd_err = dd_array[:,1:N_fields+1]
+        dr_err = dr_array[:,1:N_fields+1]
+        rr_err = rr_array[:,1:N_fields+1]
 
-        for sub_i in range(1,N_fields+1):
+        for sub_i in range(N_fields):
             this_dd_err = dd_err[:,sub_i]
             print this_dd_err
             this_dr_err = dr_err[:,sub_i]
             this_rr_err = rr_err[:,sub_i]
 
+            id = sub_i + 1
             if xi_error_type == "jackknife":
-                nd = data_fields[data_fields != sub_i].size
-                nr = rand_fields[rand_fields != sub_i].size
+                nd = data_fields[data_fields != id].size
+                nr = rand_fields[rand_fields != id].size
             elif xi_error_type == "field-to-field":
-                nd = data_fields[data_fields == sub_i].size
-                nr = rand_fields[rand_fields == sub_i].size
+                nd = data_fields[data_fields == id].size
+                nr = rand_fields[rand_fields == id].size
        
             print nd, nr
             if xi_estimator_type == "landy-szalay":
@@ -508,7 +507,7 @@ def pair_counts(data, rand, radii,
                 est_sub = est_standard(this_dd_err,this_dr_err,nd,nr)
 
             diff = est - est_sub
-            error += np.divide(this_dr_err.astype("float64"),dr_array)*diff*diff
+            error += np.divide(this_dr_err.astype("float64"),dr_total)*diff*diff
 
         if xi_error_type == "field-to-field":
             error /= float(N_error - 1)
@@ -525,9 +524,9 @@ def pair_counts(data, rand, radii,
     if error is not None: error = np.sqrt(error)
     output = {  
                 "radii":radii,
-                "DD":dd_array,
-                "DR":dr_array,
-                "RR":rr_array,
+                "DD":dd_total,
+                "DR":dr_total,
+                "RR":rr_total,
                 "estimator":est,
                 "error": error,
                 "xi_error_type":xi_error_type,

@@ -30,7 +30,12 @@ int main(int argc, char *argv[]) {
         x[i] = ((double) rand())/RAND_MAX;
         y[i] = ((double) rand())/RAND_MAX;
         z[i] = ((double) rand())/RAND_MAX;
-        f[i] = 0;
+    }
+
+    int num_fields = 4;
+
+    for(i=0; i<n; i++) {
+        f[i] = 1 + (long long) rand() * num_fields / ((long long)RAND_MAX+1);
     }
 
     array3d_t data;
@@ -38,6 +43,7 @@ int main(int argc, char *argv[]) {
     data.y = y;
     data.z = z;
     data.fields = f;
+    data.num_fields = num_fields;
     data.size = n;
     
     printf("Generated random data...\n");
@@ -50,7 +56,7 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &start);
     long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
-    for(i=0; i<ID_MASK_MAXINT; i++) {
+    for(i=0; i<num_fields+1; i++) {
         printf("%lld ", output[i]);
     }
     printf("\n");
