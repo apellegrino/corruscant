@@ -73,6 +73,72 @@ static void quick_argsort(double *a, int *b, int left, int right)
     quick_argsort(a,b,j+1,right);
 }
 
+static void merge_argsort(double *a, int *b, int left, int right)
+{
+    if (right == left) return;
+    if (right - left == 1) {
+        if(a[right] < a[left]) {
+            swapDouble(a+left,a+right);
+            swapInt(b+left,b+right);
+            return;
+        }
+    }
+
+    int m = median(left,right);
+
+    merge_argsort(a, b, left, m-1);
+    merge_argsort(a, b, m, right);
+
+    double * new_a = (double *) malloc( (right-left+1) * sizeof(double) );
+    int * new_b = (int *) malloc( (right-left+1) * sizeof(int) );
+
+    // cursors to current elements in each array
+    int lc = left;
+    int rc = m;
+    int nc = 0;
+
+    while(lc < m && rc <= right) {
+        if( a[lc] < a[rc] ) {
+            new_a[nc] = a[lc];
+            new_b[nc] = b[lc];
+            lc++; nc++;
+        } else if ( a[lc] > a[rc] ) {
+            new_a[nc] = a[rc];
+            new_b[nc] = b[rc];
+            rc++; nc++;
+        } else {
+            new_a[nc] = a[lc];
+            new_b[nc] = b[lc];
+            lc++; nc++;
+            new_a[nc] = a[rc];
+            new_b[nc] = b[rc];
+            rc++; nc++;
+        }
+    }
+
+    while(lc < m) {
+        new_a[nc] = a[lc];
+        new_b[nc] = b[lc];
+        lc++; nc++;
+    }
+    while(rc <= right) {
+        new_a[nc] = a[rc];
+        new_b[nc] = b[rc];
+        rc++; nc++;
+    }
+
+    int i;
+    for(i=0; i<right-left+1; i++) {
+        a[left+i] = new_a[i];
+        b[left+i] = new_b[i];
+    }
+
+    free(new_a);
+    free(new_b);
+
+    return;
+}
+
 static int * argsort(double *a, int size)
 {
 
@@ -91,18 +157,13 @@ static int * argsort(double *a, int size)
      * sort the copy of "a" while performing duplicate operations on "ind".
      * "ind" becomes an array of indices to "a" which sort "a"
      */
-    quick_argsort(acpy, ind, 0, size-1);
+    //quick_argsort(acpy, ind, 0, size-1);
+    merge_argsort(acpy, ind, 0, size-1);
     free(acpy);
     return ind;
 }
 
-/*
-static enum dim choose_dim()
-{
-}
-*/
-
-double * get_data_array(kdtree_t tree, enum dim d)
+static inline double * get_data_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
@@ -117,7 +178,7 @@ double * get_data_array(kdtree_t tree, enum dim d)
 
 }
 
-int * get_arg_array(kdtree_t tree, enum dim d)
+static inline int * get_arg_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
@@ -233,9 +294,9 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     med = median(left,right);
 
     /* Find index of the median in appropriate position list */
-    med_arg = *( get_arg_array(tree, d) + med );
+    med_arg = (get_arg_array(tree, d))[med];
 
-    /* this node is the median */
+    /* the median point in dim d has index med_arg */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
 
     ids = tree.data.fields;
@@ -288,7 +349,6 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     set_rchild(parent);
     build(tree, left_child(ind), left,med-1,next_dim(d));
     build(tree, right_child(ind), med+1,right,next_dim(d));
-
 
     return;
 }
