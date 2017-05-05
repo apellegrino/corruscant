@@ -15,10 +15,10 @@ python: mkdirs ${BIN}/libkdtree.so
 benchmark: mkdirs ${BIN}/bench
 
 ${BIN}/libkdtree.so: ${SRC}/build.c ${SRC}/query.c ${SRC}/kdtest.c
-	${CC} ${CFLAGS} -shared -fPIC $^ -o $@ -lpthread
+	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
 
 ${BIN}/bench: ${OBJ}/bench.o ${OBJ}/build.o ${OBJ}/query.o ${OBJ}/kdtest.o
-	${CC} $^ -o $@ -lpthread -lrt
+	${CC} $^ -lpthread -lrt -o $@
 
 ${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/build.o ${OBJ}/query.o
 	${CC} $^ -o $@

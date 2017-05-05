@@ -264,17 +264,17 @@ void destroy(kdtree_t t)
     //free(t.data.z);
 }
 
-inline void set_id(node_t * node, int id)
+static inline void set_id(node_t * node, int id)
 {
     node->flags |= ID_MASK & (id << 2);
 }
 
-inline void set_lchild(node_t * node)
+static inline void set_lchild(node_t * node)
 {
     node->flags |= HAS_LCHILD;
 }
 
-inline void set_rchild(node_t * node)
+static inline void set_rchild(node_t * node)
 {
     node->flags |= HAS_RCHILD;
 }

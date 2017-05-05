@@ -476,7 +476,10 @@ class tree:
         self.fields = fields
         self.N_fields = N_fields
 
-        self.ctree = _make_tree(points, fields, N_fields)
+        if len(fields) != self.size:
+            raise InputError("Field array must be the same size as the data set")
+        else:
+            self.ctree = _make_tree(points, fields, N_fields)
 
     def __del__(self):
         kdlib.destroy(self.ctree)

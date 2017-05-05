@@ -5,7 +5,7 @@ int nodesize(void) {
     return sizeof(node_t);
 }
 
-inline unsigned long long convert(double x)
+static inline unsigned long long convert(double x)
 {
     /* could do return *((long long *) &x) here, but the following does not
      * raise a strict-aliasing warning from gcc */ 

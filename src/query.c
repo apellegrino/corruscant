@@ -53,17 +53,17 @@ static inline FLOAT norm2(FLOAT a, FLOAT b, FLOAT c)
     return a*a+b*b+c*c;
 }
 
-inline int get_field(node_t p)
+static inline int get_field(node_t p)
 {
     return (p.flags & ID_MASK) >> 2;
 }
 
-inline int has_lchild(node_t p)
+static inline int has_lchild(node_t p)
 {
     return p.flags & HAS_LCHILD;
 }
 
-inline int has_rchild(node_t p)
+static inline int has_rchild(node_t p)
 {
     return p.flags & HAS_RCHILD;
 }
