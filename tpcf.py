@@ -1,4 +1,5 @@
 import ctypes
+#from ctypes import POINTER, c_double, c_int, Structure, CDLL, c_longlong
 from os.path import abspath, dirname
 import numpy as np
 
@@ -130,165 +131,6 @@ def _make_tree(points, fields, N_fields=1):
 
     return tree
 
-## input: ra, dec in degrees, redshift
-## output: x, y, z
-#def sph_to_cart(data):
-#    ra = data[0]
-#    dec = data[1]
-#    redshift = data[2]
-#
-#    from astropy import cosmology
-#
-#    H_0 = 100.0
-#    Om0 = .237
-#    Ode0 = .763
-#
-#    cos = cosmology.LambdaCDM(H_0, Om0, Ode0)
-#    r = cos.comoving_distance(redshift)
-#
-#    x = r * np.cos(np.pi / 180. * dec) * np.cos(np.pi / 180. * ra)
-#    y = r * np.cos(np.pi / 180. * dec) * np.sin(np.pi / 180. * ra)
-#    z = r * np.sin(np.pi / 180. * dec)
-#
-#    return np.array([x,y,z])
-
-## exclude 1/N th of the data and random sets in a dimension
-#def _jackknife(data, random, N, dim=0):
-#    nd = data.shape[1]
-#
-#    # sort data and random in the (dim) dimension
-#    # X=0, Y=1, Z=2
-#    data = data[:,np.argsort(data[dim,:])]
-#    random = random[:,np.argsort(random[dim,:])]
-#
-#
-#    for i in range(N):
-#        start = i * nd/N + min(i,nd % N)
-#        stop = start + nd/N + (nd % N > i)
-#
-#        # exclude the range from start to stop
-#        data_sub = np.concatenate([data[:,:start], data[:,stop:]], axis=1)
-#
-#        # counter bias due to splitting based on data position
-#        if start <= 0:
-#            data_min = -np.inf
-#        else:
-#            data_min = (data[dim,start]+data[dim,start-1])/2
-#
-#        if stop >= nd:
-#            data_max = np.inf
-#        else:
-#            data_max = (data[dim,stop-1]+data[dim,stop])/2
-#
-#        random_sub = np.concatenate([random[:,random[dim] < data_min],
-#                                    random[:,random[dim] > data_max]], axis=1)
-#
-#        yield data_sub, random_sub
-
-#def cart_to_sph(data):
-#    x = data[0]
-#    y = data[1]
-#    z = data[2]
-#
-#    offset = -np.sign(x)*(np.sign(y)+1)/2.+1
-#
-#    ra = np.arctan2(y,x)/np.pi * 180.
-#    if ra < 0:
-#        ra = ra + 360.
-#
-#    dec = np.sign(z) * np.arctan(np.sqrt(z*z/(x*x+y*y))) / np.pi * 180.
-#
-#    return ra, dec
-
-## user-defined boundaries for jackknife error
-## bounds is an array of boundaries, where each boundary defines a min and max
-## value for each coordinate e.g. [min_ra, max_ra, min_dec, max_dec]
-#def _jackknife_bounds(data, random, bounds):
-#    for b in bounds:
-#        print b
-#        
-#        data_sub = []
-#        random_sub = []
-#    
-#        for point in data.T:
-#            ra, dec = cart_to_sph(point)
-#            if not b[0] < ra < b[1]:
-#                data_sub.append(point)
-#                continue
-#            if not b[2] < dec < b[3]:
-#                data_sub.append(point)
-#                continue
-#
-#        for point in random.T:
-#            ra, dec = cart_to_sph(point)
-#            if not b[0] < ra < b[1]:
-#                random_sub.append(point)
-#                continue
-#            if not b[2] < dec < b[3]:
-#                random_sub.append(point)
-#                continue
-#
-#        data_sub = np.copy(np.array(data_sub).T)
-#        random_sub = np.copy(np.array(random_sub).T)
-#
-#        print "%d out of %d" % (data_sub.shape[1], data.shape[1])
-#        yield data_sub, random_sub
-
-## user-defined boundaries for field-to-field error
-#def _ftf_bounds(data, random, bounds):
-#    for b in bounds:
-#        
-#        data_sub = []
-#        random_sub = []
-#    
-#        for point in data.T:
-#            ra, dec = cart_to_sph(point)
-#            if not bounds[0][0] < ra < bounds[0][1]: continue
-#            if not bounds[1][0] < dec < bounds[1][1]: continue
-#            data_sub.append(point)
-#
-#        for point in random.T:
-#            ra, dec = cart_to_sph(point)
-#            if not bounds[0][0] < ra < bounds[0][1]: continue
-#            if not bounds[1][0] < dec < bounds[1][1]: continue
-#            random_sub.append(point)
-#
-#        data_sub = np.copy(np.array(data_sub).T)
-#        random_sub = np.copy(np.array(random_sub).T)
-#
-#        print data_sub.shape, random_sub.shape
-#        yield data_sub, random_sub
-
-#def _ftf(data, random, N=10, dim=0):
-#    nd = data.shape[1]
-#
-#    # sort data and random in dim
-#    data = data[:,np.argsort(data[dim,:])]
-#    random = random[:,np.argsort(random[dim,:])]
-#
-#
-#    for i in range(N):
-#        start = i * nd/N + min(i,nd % N)
-#        stop = start + nd/N + (nd % N > i)
-#
-#        # include from start to stop
-#        data_sub = data[:,start:stop]
-#
-#        # counter bias due to splitting based on data position
-#        if start <= 0:
-#            data_min = -np.inf
-#        else:
-#            data_min = (data[dim,start]+data[dim,start+1])/2
-#
-#        if stop >= nd:
-#            data_max = np.inf
-#        else:
-#            data_max = (data[dim,stop-1]+data[dim,stop-2])/2
-#
-#        random_sub = random[:,random[dim] > data_min]
-#        random_sub = random_sub[:,random_sub[dim] < data_max]
-#        yield data_sub, random_sub
-
 def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_fields=0):
     points_x, points_y, points_z = _unpack(points)
     if fields is None:
@@ -343,17 +185,15 @@ def est_landy_szalay(dd,dr,rr,dsize,rsize):
     f = float(rsize)/dsize
     return ( f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr) ) / np.array(rr)
 
-def est_hamilton(dd,dr,rr):
+def est_hamilton(dd,dr,rr,dsize,rsize):
     return np.divide( np.multiply(dd,rr).astype("float64"),
                       np.multiply(dr,dr).astype("float64") ) - 1.
 
-def est_standard(dd,dr,dsize,rsize):
+def est_standard(dd,dr,rr,dsize,rsize):
     return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
-def twopoint(data_tree, rand_tree, radii, 
-                est_type="landy-szalay",
-                err_type='jackknife', num_threads=4,
-                N_fields=0):
+def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
+             err_type='jackknife', num_threads=4):
     """Given a set of 3D cartesian data points and random points, calculate the
     estimated two-point correlation function with error estimation.
 
@@ -368,8 +208,7 @@ def twopoint(data_tree, rand_tree, radii,
     speed: "standard" > "landy-szalay" = "hamilton"
 
     err_type -- a string defining what type of error to calculate. (default None)
-        Possible values in order of decreasing speed:
-            None > "poisson" > "field-to-field" > "jackknife"
+        Possible values: "jackknife", "field-to-field", "poisson", None
 
     N_error -- an integer describing the number of bins to use when calculating
     jackknife or field-to-field errors. Lower is faster, higher is more
@@ -384,78 +223,37 @@ def twopoint(data_tree, rand_tree, radii,
     radii, the errors of estimator values if specified, and the input radii
     list and estimator and error types.
     """
-    est_types = ["landy-szalay", "hamilton", "standard"]
-    if not est_type in est_types:
+
+    if data_tree.N_fields != rand_tree.N_fields:
+        raise InputError("data and random trees must have same number of fields")
+
+    if est_type == "landy-szalay":
+        estimator = est_landy_szalay
+    elif est_type == "hamilton":
+        estimator = est_hamilton
+    elif est_type == "standard":
+        estimator = est_standard
+    else:
         raise InputError("Estimator type for Xi %s not valid" % est_type)
 
-    err_types = [None, "poisson", "field-to-field", "jackknife"]
-    if not err_type in err_types:
+    valid_err_types = ["jackknife", "field-to-field", "poisson", None]
+    if err_type not in valid_err_types:
         raise InputError("Estimator error type %s not valid" % err_type)
 
     dd_array = np.diff([_query_tree(data_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
     dr_array = np.diff([_query_tree(rand_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
 
-    rr_array = np.zeros_like(dd_array)
+    rr_array = None
     if not est_type == "standard":
         rr_array = np.diff([_query_tree(rand_tree, rand_tree.points, r, num_threads, err_type, rand_tree.fields, rand_tree.N_fields) for r in radii], axis=0)
 
-    dd_total = dd_array[:,0]
-    dr_total = dr_array[:,0]
-    rr_total = rr_array[:,0]
-    if est_type == "landy-szalay":
-        est = est_landy_szalay(dd_total,dr_total,rr_total,data_tree.size,rand_tree.size)
-    elif est_type == "hamilton":
-        est = est_hamilton(dd_total,dr_total,rr_total)
-    elif est_type == "standard":
-        est = est_standard(dd_total,dr_total,data_tree.size,rand_tree.size)
-    error = None
+    data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree, estimator, radii)
+    data.error_type = err_type
 
-    if err_type == "jackknife" or err_type == "field-to-field":
-        error = np.zeros(len(radii)-1)
-        
-        dd_err = dd_array[:,1:N_fields+1]
-        dr_err = dr_array[:,1:N_fields+1]
-        rr_err = rr_array[:,1:N_fields+1]
+    est = data.estimate()
+    dd_total, dr_total, rr_total = data.total_pair_counts()
+    error, cov = data.error(est)
 
-        for sub_i in range(N_fields):
-            this_dd_err = dd_err[:,sub_i]
-            this_dr_err = dr_err[:,sub_i]
-            this_rr_err = rr_err[:,sub_i]
-
-            id = sub_i + 1
-
-            # need number of points in each subset for some estimators
-            dfields = data_tree.fields
-            rfields = rand_tree.fields
-            if err_type == "jackknife":
-                nd = dfields[dfields != id].size
-                nr = rfields[rfields != id].size
-            elif err_type == "field-to-field":
-                nd = dfields[dfields == id].size
-                nr = rfields[rfields == id].size
-
-            # compute estimators for this subset
-            if est_type == "landy-szalay":
-                est_sub = est_landy_szalay(this_dd_err,this_dr_err,this_rr_err,nd,nr)
-            elif est_type == "hamilton":
-                est_sub = est_hamilton(this_dd_err,this_dr_err,this_rr_err)
-            elif est_type == "standard":
-                est_sub = est_standard(this_dd_err,this_dr_err,nd,nr)
-
-            diff = est - est_sub
-            error += np.divide(this_dr_err.astype("float64"),dr_total)*diff*diff
-
-        if err_type == "field-to-field":
-            error /= float(N_error - 1)
-
-    elif err_type == "poisson":
-        with np.errstate(divide='ignore', invalid='ignore'):
-            error = np.divide(1 + est,np.sqrt(dd_array))
-            error[np.isneginf(error)] = np.nan
-            error[np.isinf(error)] = np.nan
-
-    #if error is not None:
-    error = np.sqrt(error)
     output = {  
                 "radii":radii,
                 "DD":dd_total,
@@ -471,15 +269,100 @@ class tree:
     def __init__(self, points, fields, N_fields):
         points = validate_array(points)
 
+        if N_fields < 1:
+            raise InputError("Trees must have at least one field")
+
         self.points = points
         self.size = points.shape[1]
         self.fields = fields
         self.N_fields = N_fields
+        self.field_sizes = self._calc_field_sizes()
 
         if len(fields) != self.size:
             raise InputError("Field array must be the same size as the data set")
         else:
             self.ctree = _make_tree(points, fields, N_fields)
 
+    def _calc_field_sizes(self):
+        fields = self.fields
+        return np.array([fields[fields == id].size for id in range(1,self.N_fields+1)])
+
     def __del__(self):
         kdlib.destroy(self.ctree)
+
+class twopoint_data:
+    def __init__(self, dd, dr, rr, dtree, rtree, estimator, radii):
+        self.dd = dd
+        self.dr = dr
+        self.rr = rr
+        self.dtree = dtree
+        self.rtree = rtree
+        self.estimator = estimator
+        self.radii = radii
+
+    def total_pair_counts(self):
+        if self.rr is None:
+            return self.dd[:,0], self.dr[:,0], None
+        else:
+            return self.dd[:,0], self.dr[:,0], self.rr[:,0]
+
+    def field_pair_counts(self, fid):
+        if self.rr is None:
+            return self.dd[:,fid], self.dr[:,fid], None
+        else:
+            return self.dd[:,fid], self.dr[:,fid], self.rr[:,fid]
+
+    def estimate(self):
+        func = self.estimator
+        dd, dr, rr = self.total_pair_counts()
+        return func(dd, dr, rr, self.dtree.size, self.rtree.size)
+
+    def error(self,estimation):
+        nradbins = len(self.radii)-1
+
+        dd_tot, dr_tot, rr_tot = self.total_pair_counts()
+
+        if self.error_type is None:
+            return None, None
+    
+        if self.error_type == "poisson":
+            with np.errstate(divide='ignore', invalid='ignore'):
+                error = np.divide(1 + estimation,np.sqrt(dd_tot))
+                error[np.isneginf(error)] = np.nan
+                error[np.isinf(error)] = np.nan
+            return error, None
+
+        if self.error_type == "jackknife":
+            # sizes with one field out
+            dfield_sizes = self.dtree.size - self.dtree.field_sizes
+            rfield_sizes = self.rtree.size - self.rtree.field_sizes
+
+        elif self.error_type == "field-to-field":
+            # sizes with one field in
+            data_field_sizes = self.dtree.field_sizes
+            rand_field_sizes = self.rtree.field_sizes
+
+        est_func = self.estimator
+
+        error = np.zeros(len(self.radii)-1)
+        cov = np.zeros((nradbins,nradbins))
+
+        for fid in range(1,self.dtree.N_fields+1):
+            dd, dr, rr = self.field_pair_counts(fid)
+            est_per_field = est_func(dd,dr,rr,dfield_sizes[fid-1],rfield_sizes[fid-1])
+
+            # error in estimation
+            diff = estimation - est_per_field
+            error += np.divide(dr.astype("float64"),dr_tot)*diff*diff
+
+            # covariance matrix
+            for i in range(nradbins):
+                for j in range(nradbins):
+                    cov[i,j] += np.sqrt(float(rr[i])/rr_tot[i])*(est_per_field[i]-estimation[i]) * \
+                                np.sqrt(float(rr[j])/rr_tot[j])*(est_per_field[j]-estimation[j])
+
+        if self.error_type == "field-to-field":
+            error /= float(N_error - 1)
+        error = np.sqrt(error)
+
+        return error, cov

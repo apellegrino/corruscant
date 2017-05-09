@@ -16,7 +16,7 @@ rand_fields = np.where(X_random.T[0] < 0.5, 1, 2)
 dtree = tpcf.tree(X_data, data_fields, 2)
 rtree = tpcf.tree(X_random, rand_fields, 2)
 
-results = tpcf.twopoint(dtree, rtree, radii, N_fields=2,
+results = tpcf.twopoint(dtree, rtree, radii,
                            est_type="landy-szalay",
                            err_type='jackknife', num_threads=2)
 
