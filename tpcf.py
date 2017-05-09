@@ -1,83 +1,82 @@
-import ctypes
-#from ctypes import POINTER, c_double, c_int, Structure, CDLL, c_longlong
+from ctypes import POINTER, c_double, c_int, Structure, CDLL, c_longlong
 from os.path import abspath, dirname
 import numpy as np
 
-class node(ctypes.Structure):
+class node(Structure):
     pass
 
-class array3d(ctypes.Structure):
+class array3d(Structure):
     _fields_ = [
-        ("x",ctypes.POINTER(ctypes.c_double)),
-        ("y",ctypes.POINTER(ctypes.c_double)),
-        ("z",ctypes.POINTER(ctypes.c_double)),
-        ("fields",ctypes.POINTER(ctypes.c_int)),
-        ("num_fields",ctypes.c_int),
-        ("size",ctypes.c_int),
+        ("x",POINTER(c_double)),
+        ("y",POINTER(c_double)),
+        ("z",POINTER(c_double)),
+        ("fields",POINTER(c_int)),
+        ("num_fields",c_int),
+        ("size",c_int),
         ]
 
-class argarray3d(ctypes.Structure):
+class argarray3d(Structure):
     _fields_ = [
-        ("x",ctypes.POINTER(ctypes.c_int)),
-        ("y",ctypes.POINTER(ctypes.c_int)),
-        ("z",ctypes.POINTER(ctypes.c_int)),
-        ("size",ctypes.c_int),
+        ("x",POINTER(c_int)),
+        ("y",POINTER(c_int)),
+        ("z",POINTER(c_int)),
+        ("size",c_int),
         ]
 
-class kdtree(ctypes.Structure):
+class kdtree(Structure):
     _fields_ = [
-        ("node_data",ctypes.POINTER(node)),
-        ("size",ctypes.c_int),
-        ("memsize",ctypes.c_int),
+        ("node_data",POINTER(node)),
+        ("size",c_int),
+        ("memsize",c_int),
         ("data",array3d),
         ("arg_data",argarray3d),
         ]
 
 path_here = abspath(__file__)
 path_dir = dirname(path_here)
-kdlib = ctypes.CDLL("%s/bin/libkdtree.so" % path_dir)
+kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [array3d]
 
 kdlib.form_array.restype = array3d
 kdlib.form_array.argtypes = [
-                            ctypes.POINTER(ctypes.c_double), # x
-                            ctypes.POINTER(ctypes.c_double), # y
-                            ctypes.POINTER(ctypes.c_double), # z
-                            ctypes.POINTER(ctypes.c_int), # field ids
-                            ctypes.c_int, #size
+                            POINTER(c_double), # x
+                            POINTER(c_double), # y
+                            POINTER(c_double), # z
+                            POINTER(c_int), # field ids
+                            c_int, #size
                             ]
 
 kdlib.destroy.restype = None
 kdlib.destroy.argtypes = [kdtree]
 
 # returning array w/ numbers of pair counts
-kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
 
 kdlib.pair_count_jackknife.argtypes = [
                             kdtree, # tree to query
                             array3d, # data to query with
-                            ctypes.c_double, # radius
-                            ctypes.c_int, # num_threads
+                            c_double, # radius
+                            c_int, # num_threads
                             ]
 
-kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
 
 kdlib.pair_count_ftf.argtypes = [
                             kdtree, # tree to query
                             array3d, # data to query with
-                            ctypes.c_double, # radius
-                            ctypes.c_int, # num_threads
+                            c_double, # radius
+                            c_int, # num_threads
                             ]
 
-kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=ctypes.c_longlong, shape=(255,))
+kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
 
 kdlib.pair_count_noerr.argtypes = [
                             kdtree, # tree to query
                             array3d, # data to query with
-                            ctypes.c_double, # radius
-                            ctypes.c_int, # num_threads
+                            c_double, # radius
+                            c_int, # num_threads
                             ]
 def _unpack(data):
     return tuple([np.copy(row) for row in data])
@@ -96,11 +95,11 @@ def make_clike_array(points, fields=None):
     fields = fields.astype('int32')
 
     array = kdlib.form_array(
-                        points_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-                        ctypes.c_int(points.shape[1])
+                        points_x.ctypes.data_as(POINTER(c_double)),
+                        points_y.ctypes.data_as(POINTER(c_double)),
+                        points_z.ctypes.data_as(POINTER(c_double)),
+                        fields.ctypes.data_as(POINTER(c_int)),
+                        c_int(points.shape[1])
                         )
     return array
 
@@ -117,12 +116,12 @@ def _make_tree(points, fields, N_fields=1):
     fields = fields.astype('int32')
 
     array = kdlib.form_array(
-                        points_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-                        ctypes.c_int(N_fields),
-                        ctypes.c_int(points.shape[1]),
+                        points_x.ctypes.data_as(POINTER(c_double)),
+                        points_y.ctypes.data_as(POINTER(c_double)),
+                        points_z.ctypes.data_as(POINTER(c_double)),
+                        fields.ctypes.data_as(POINTER(c_int)),
+                        c_int(N_fields),
+                        c_int(points.shape[1]),
                         )
 
     #array = make_clike_array(points,fields)
@@ -140,12 +139,12 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_field
     fields = fields.astype('int32')
 
     array = kdlib.form_array(
-                        points_x.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_y.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        points_z.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                        fields.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-                        ctypes.c_int(N_fields),
-                        ctypes.c_int(points.shape[1]),
+                        points_x.ctypes.data_as(POINTER(c_double)),
+                        points_y.ctypes.data_as(POINTER(c_double)),
+                        points_z.ctypes.data_as(POINTER(c_double)),
+                        fields.ctypes.data_as(POINTER(c_int)),
+                        c_int(N_fields),
+                        c_int(points.shape[1]),
                         )
 
     #array = make_clike_array(points, fields)
