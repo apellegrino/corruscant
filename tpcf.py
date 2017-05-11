@@ -1,4 +1,4 @@
-from ctypes import POINTER, c_double, c_int, Structure, CDLL, c_longlong
+from ctypes import CDLL, Structure, POINTER, c_double, c_int, c_longlong
 from os.path import abspath, dirname
 import numpy as np
 
@@ -249,20 +249,7 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree, estimator, radii)
     data.error_type = err_type
 
-    est = data.estimate()
-    dd_total, dr_total, rr_total = data.total_pair_counts()
-    error, cov = data.error(est)
-
-    output = {  
-                "radii":radii,
-                "DD":dd_total,
-                "DR":dr_total,
-                "RR":rr_total,
-                "estimator":est,
-                "error": error,
-                "err_type":err_type,
-            }
-    return output
+    return data
 
 class tree:
     def __init__(self, points, fields, N_fields):
@@ -314,9 +301,10 @@ class twopoint_data:
     def estimate(self):
         func = self.estimator
         dd, dr, rr = self.total_pair_counts()
-        return func(dd, dr, rr, self.dtree.size, self.rtree.size)
+        self.estimation = func(dd, dr, rr, self.dtree.size, self.rtree.size)
+        return self.estimation
 
-    def error(self,estimation):
+    def covariance(self):
         nradbins = len(self.radii)-1
 
         dd_tot, dr_tot, rr_tot = self.total_pair_counts()
@@ -343,25 +331,36 @@ class twopoint_data:
 
         est_func = self.estimator
 
-        error = np.zeros(len(self.radii)-1)
-        cov = np.zeros((nradbins,nradbins))
+        cov = np.zeros((self.radii.size-1,self.radii.size-1))
 
         for fid in range(1,self.dtree.N_fields+1):
             dd, dr, rr = self.field_pair_counts(fid)
             est_per_field = est_func(dd,dr,rr,dfield_sizes[fid-1],rfield_sizes[fid-1])
 
-            # error in estimation
-            diff = estimation - est_per_field
-            error += np.divide(dr.astype("float64"),dr_tot)*diff*diff
+            diff = est_per_field - self.estimation
 
             # covariance matrix
-            for i in range(nradbins):
-                for j in range(nradbins):
-                    cov[i,j] += np.sqrt(float(rr[i])/rr_tot[i])*(est_per_field[i]-estimation[i]) * \
-                                np.sqrt(float(rr[j])/rr_tot[j])*(est_per_field[j]-estimation[j])
+            rr_quotient = np.sqrt(rr.astype('float64')/rr_tot)
+            rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
+            
+            xi_subi, xi_subj = np.meshgrid(diff,diff)
+            cov += rr_subi*xi_subi*rr_subj*xi_subj
 
         if self.error_type == "field-to-field":
-            error /= float(N_error - 1)
-        error = np.sqrt(error)
+            cov /= float(self.dtree.N_fields - 1)
 
-        return error, cov
+        return cov
+
+    def error(self):
+        cov = self.covariance()
+
+        return np.sqrt(np.diagonal(cov))
+
+    def normalized_covariance(self):
+        # normalize covariance matrix to get the regression matrix
+        cov = self.covariance()
+
+        sigmas = np.sqrt(np.diagonal(cov))
+        i_divisor, j_divisor = np.meshgrid(sigmas,sigmas)
+        total_divisor = np.multiply(i_divisor,j_divisor)
+        return np.divide(cov,total_divisor)

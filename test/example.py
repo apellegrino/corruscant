@@ -26,12 +26,12 @@ print "r = "
 print radii
 
 print "DD, DR, RR differential counts"
-dd = results["DD"]
-dr = results["DR"]
-rr = results["RR"]
+dd, dr, rr = results.total_pair_counts()
 print np.vstack([dd,dr,rr]).T
 
 print "Estimated Xi(r)"
-print results["estimator"]
-print "sigma^2 of Xi(r)"
-print results["error"]
+print results.estimate()
+print "Error of Xi(r)"
+print results.error()
+print "Covariance matrix"
+print results.covariance()
