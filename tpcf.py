@@ -39,15 +39,6 @@ kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [array3d]
 
-kdlib.form_array.restype = array3d
-kdlib.form_array.argtypes = [
-                            POINTER(c_double), # x
-                            POINTER(c_double), # y
-                            POINTER(c_double), # z
-                            POINTER(c_int), # field ids
-                            c_int, #size
-                            ]
-
 kdlib.destroy.restype = None
 kdlib.destroy.argtypes = [kdtree]
 
@@ -81,73 +72,45 @@ kdlib.pair_count_noerr.argtypes = [
 def _unpack(data):
     return tuple([np.copy(row) for row in data])
 
-# array breaks when returned from this function ???
-def make_clike_array(points, fields=None):
-    # tree_construct is inefficient for sorted data due to quicksort.
-    # Maybe use mergesort instead
-    #np.random.shuffle(points.T)
-    points_x, points_y, points_z = _unpack(points)
-
+# whatever arrays that ctypes.data_as() is called on must remain outside the
+# scope of this function because .ctypes uses a reference to it
+def make_clike_array(x, y, z, fields, N_fields):
+    print "Making array of length %d" % len(x)
     if fields is None:
-        fields = np.zeros_like(points_z)
-    # numpy will use 64-bit ints unless otherwise specified
-    # type change must happen on ITS OWN LINE!
-    fields = fields.astype('int32')
+        fields = np.zeros_like(x, dtype=np.int32)
 
-    array = kdlib.form_array(
-                        points_x.ctypes.data_as(POINTER(c_double)),
-                        points_y.ctypes.data_as(POINTER(c_double)),
-                        points_z.ctypes.data_as(POINTER(c_double)),
-                        fields.ctypes.data_as(POINTER(c_int)),
-                        c_int(points.shape[1])
-                        )
+    if not fields.dtype == np.int32:
+        raise InputError("Fields must be of dtype int32")
+
+    array = array3d()
+    array.x = x.ctypes.data_as(POINTER(c_double))
+    array.y = y.ctypes.data_as(POINTER(c_double))
+    array.z = z.ctypes.data_as(POINTER(c_double))
+    array.fields = fields.ctypes.data_as(POINTER(c_int))
+    array.num_fields = c_int(N_fields)
+    array.size = c_int(x.shape[0])
     return array
 
 def _make_tree(points, fields, N_fields=1):
-    # tree_construct is inefficient for sorted data due to quicksort.
-    # Maybe use mergesort instead
-    #np.random.shuffle(points.T)
     points_x, points_y, points_z = _unpack(points)
 
-    if fields is None:
-        fields = np.zeros_like(points_x)
     # numpy will use 64-bit ints unless otherwise specified
     # type change must happen on ITS OWN LINE!
     fields = fields.astype('int32')
 
-    array = kdlib.form_array(
-                        points_x.ctypes.data_as(POINTER(c_double)),
-                        points_y.ctypes.data_as(POINTER(c_double)),
-                        points_z.ctypes.data_as(POINTER(c_double)),
-                        fields.ctypes.data_as(POINTER(c_int)),
-                        c_int(N_fields),
-                        c_int(points.shape[1]),
-                        )
-
-    #array = make_clike_array(points,fields)
-
+    array = make_clike_array(points_x,points_y,points_z,fields,N_fields)
     tree = kdlib.tree_construct(array)
 
     return tree
 
 def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_fields=0):
     points_x, points_y, points_z = _unpack(points)
-    if fields is None:
-        fields = np.zeros_like(points_x)
+    
     # numpy will use 64-bit ints unless otherwise specified
     # type change must happen on ITS OWN LINE!
     fields = fields.astype('int32')
 
-    array = kdlib.form_array(
-                        points_x.ctypes.data_as(POINTER(c_double)),
-                        points_y.ctypes.data_as(POINTER(c_double)),
-                        points_z.ctypes.data_as(POINTER(c_double)),
-                        fields.ctypes.data_as(POINTER(c_int)),
-                        c_int(N_fields),
-                        c_int(points.shape[1]),
-                        )
-
-    #array = make_clike_array(points, fields)
+    array = make_clike_array(points_x,points_y,points_z,fields,N_fields)
     counts = None
     if errtype == 'jackknife':
         counts = kdlib.pair_count_jackknife(tree.ctree,array,radius,num_threads)
@@ -305,7 +268,6 @@ class twopoint_data:
         return self.estimation
 
     def covariance(self):
-        nradbins = len(self.radii)-1
 
         dd_tot, dr_tot, rr_tot = self.total_pair_counts()
 
@@ -326,8 +288,8 @@ class twopoint_data:
 
         elif self.error_type == "field-to-field":
             # sizes with one field in
-            data_field_sizes = self.dtree.field_sizes
-            rand_field_sizes = self.rtree.field_sizes
+            dfield_sizes = self.dtree.field_sizes
+            rfield_sizes = self.rtree.field_sizes
 
         est_func = self.estimator
 

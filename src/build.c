@@ -369,19 +369,6 @@ static int pow2ceil(int x)
     return x;
 }
 
-array3d_t form_array(double *x, double *y, double *z, int *fields, int num_fields, int size)
-{
-    array3d_t data;
-    data.x = x;
-    data.y = y;
-    data.z = z;
-    data.fields = fields;
-    data.num_fields = num_fields;
-    data.size = size;
-
-    return data;
-}
-
 argarray3d_t array3d_argsort(array3d_t data)
 {
     argarray3d_t arg;
