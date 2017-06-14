@@ -73,14 +73,15 @@ def _unpack(data):
     return tuple([np.copy(row) for row in data])
 
 # whatever arrays that ctypes.data_as() is called on must remain outside the
-# scope of this function because .ctypes uses a reference to it
+# scope of this function because .ctypes uses a reference to it, otherwise the
+# references will be dangling
 def make_clike_array(x, y, z, fields, N_fields):
     print "Making array of length %d" % len(x)
     if fields is None:
         fields = np.zeros_like(x, dtype=np.int32)
 
     if not fields.dtype == np.int32:
-        raise InputError("Fields must be of dtype int32")
+        raise ValueError("Fields must be of dtype int32")
 
     array = array3d()
     array.x = x.ctypes.data_as(POINTER(c_double))
@@ -121,25 +122,19 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_field
 
     return counts[:N_fields+1]
 
-class InputError:
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
 def validate_array(arr):
     if not type(arr) is np.ndarray:
         arr = np.array(arr)
 
     if not (arr.ndim == 2):
-        raise InputError("Array must be two-dimensional (i.e. a list of points)")
+        raise ValueError("Array must be two-dimensional (i.e. a list of points)")
 
     # try to make array of shape (3, N) if shape is (N, 3)
     if (arr.shape[1] == 3):
         arr = arr.T
 
     if not(arr.shape[0] == 3):
-        raise InputError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
+        raise ValueError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
 
     return arr
 
@@ -160,34 +155,29 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     estimated two-point correlation function with error estimation.
 
     Arguments:
-    data (numpy.ndarray) -- array of data points with shape (3, N_data).
-    rand (numpy.ndarray) -- array of random points with shape (3, N_random).
-    radii (array-like) -- an array-like of floats which define the radius bin sizes.
+    data_tree (kdtree) -- tree of data points
+    rand_tree (kdtree) -- tree of random points
+    radii (array-like) -- floats which define the radius bin sizes
 
     Keyword arguments:
-    est_type -- the type of estimator to use for the correlation
-    function. (default "landy-szalay") Possible values in order of decreasing
-    speed: "standard" > "landy-szalay" = "hamilton"
+    est_type -- the type of estimator to use for the correlation function.
+    (default "landy-szalay")
+        Possible values: "standard", "landy-szalay", "hamilton"
 
     err_type -- a string defining what type of error to calculate. (default None)
         Possible values: "jackknife", "field-to-field", "poisson", None
 
-    N_error -- an integer describing the number of bins to use when calculating
-    jackknife or field-to-field errors. Lower is faster, higher is more
-    accurate. (default 10)
-
     num_threads -- the maximum number of threads that the C code will create.
-    For max performance, set this to the number of logical cores on your
-    machine. (default 4)
+    For max performance, set this to the number of logical cores (threads) on
+    your machine. (default 4)
 
     Return:
-    A dictionary of pair counts, the requested estimator values for input
-    radii, the errors of estimator values if specified, and the input radii
-    list and estimator and error types.
+    A twopoint_data object containing pair count arrays, the estimator array,
+    error and covariance matrix functions and the error type
     """
 
     if data_tree.N_fields != rand_tree.N_fields:
-        raise InputError("data and random trees must have same number of fields")
+        raise ValueError("data and random trees must have same number of fields")
 
     if est_type == "landy-szalay":
         estimator = est_landy_szalay
@@ -196,11 +186,11 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     elif est_type == "standard":
         estimator = est_standard
     else:
-        raise InputError("Estimator type for Xi %s not valid" % est_type)
+        raise ValueError("Estimator type for Xi %s not valid" % est_type)
 
     valid_err_types = ["jackknife", "field-to-field", "poisson", None]
     if err_type not in valid_err_types:
-        raise InputError("Estimator error type %s not valid" % err_type)
+        raise ValueError("Estimator error type %s not valid" % err_type)
 
     dd_array = np.diff([_query_tree(data_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
     dr_array = np.diff([_query_tree(rand_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
@@ -219,7 +209,7 @@ class tree:
         points = validate_array(points)
 
         if N_fields < 1:
-            raise InputError("Trees must have at least one field")
+            raise ValueError("Trees must have at least one field")
 
         self.points = points
         self.size = points.shape[1]
@@ -228,7 +218,7 @@ class tree:
         self.field_sizes = self._calc_field_sizes()
 
         if len(fields) != self.size:
-            raise InputError("Field array must be the same size as the data set")
+            raise ValueError("Field array must be the same size as the data set")
         else:
             self.ctree = _make_tree(points, fields, N_fields)
 
@@ -248,6 +238,7 @@ class twopoint_data:
         self.rtree = rtree
         self.estimator = estimator
         self.radii = radii
+        self.error_type = None
 
     def total_pair_counts(self):
         if self.rr is None:
