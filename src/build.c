@@ -49,6 +49,7 @@ static inline int median(int left, int right)
  *  perform a quicksort on the array a[left] to a[right] which performs
  *  identical operations on another array b[left] to b[right]
  */
+/*
 static void quick_argsort(double *a, int *b, int left, int right)
 {
     int i, j;
@@ -72,7 +73,11 @@ static void quick_argsort(double *a, int *b, int left, int right)
     quick_argsort(a,b,left,j-1);
     quick_argsort(a,b,j+1,right);
 }
-
+*/
+/* 
+ *  perform a merge sort on the array a[left] to a[right] which performs
+ *  identical operations on another array b[left] to b[right]
+ */
 static void merge_argsort(double *a, int *b, int left, int right)
 {
     if (right == left) return;
@@ -139,25 +144,27 @@ static void merge_argsort(double *a, int *b, int left, int right)
     return;
 }
 
+/*
+ * Return a pointer to an array of ints which index the input array in
+ * ascending order of values
+ */
 static int * argsort(double *a, int size)
 {
 
-    /* copy a to keep a unchanged */
+    /* copy "a" to keep "a" unchanged */
     double *acpy = (double *) malloc(sizeof(double)*size);
     memcpy(acpy, a, sizeof(double)*size);
 
     int *ind = (int*) malloc(sizeof(int)*size);
     int i;
 
-    /* initialize array of indices to a */
+    /* initialize array of indices */
     for(i=0; i<size; i++)
         ind[i] = i;
 
     /*
-     * sort the copy of "a" while performing duplicate operations on "ind".
-     * "ind" becomes an array of indices to "a" which sort "a"
+     * sort the copy of "a" while performing duplicate operations on "ind"
      */
-    //quick_argsort(acpy, ind, 0, size-1);
     merge_argsort(acpy, ind, 0, size-1);
     free(acpy);
     return ind;
@@ -353,6 +360,16 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     return;
 }
 
+argarray3d_t array3d_argsort(array3d_t data)
+{
+    argarray3d_t arg;
+    arg.x = argsort(data.x, data.size);
+    arg.y = argsort(data.y, data.size);
+    arg.z = argsort(data.z, data.size);
+    arg.size = data.size;
+    return arg;
+}
+
 static int pow2ceil(int x)
 {
     int i = 1;
@@ -367,16 +384,6 @@ static int pow2ceil(int x)
     }
 
     return x;
-}
-
-argarray3d_t array3d_argsort(array3d_t data)
-{
-    argarray3d_t arg;
-    arg.x = argsort(data.x, data.size);
-    arg.y = argsort(data.y, data.size);
-    arg.z = argsort(data.z, data.size);
-    arg.size = data.size;
-    return arg;
 }
 
 kdtree_t tree_construct(array3d_t data)

@@ -154,8 +154,8 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     estimated two-point correlation function with error estimation.
 
     Arguments:
-    data_tree (kdtree) -- tree of data points
-    rand_tree (kdtree) -- tree of random points
+    data_tree (tree) -- tree of data points
+    rand_tree (tree) -- tree of random points
     radii (array-like) -- floats which define the radius bin sizes
 
     Keyword arguments:
