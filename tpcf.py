@@ -76,7 +76,6 @@ def _unpack(data):
 # scope of this function because .ctypes uses a reference to it, otherwise the
 # references will be dangling
 def make_clike_array(x, y, z, fields, N_fields):
-    print "Making array of length %d" % len(x)
     if fields is None:
         fields = np.zeros_like(x, dtype=np.int32)
 
