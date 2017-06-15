@@ -18,8 +18,8 @@ data_fields = np.where(X_data.T[0] < 0.5, 1, 2)
 rand_fields = np.where(X_random.T[0] < 0.5, 1, 2)
 
 # generate K-d trees
-dtree = tpcf.tree(X_data, data_fields, 2)
-rtree = tpcf.tree(X_random, rand_fields, 2)
+dtree = tpcf.tree(X_data, data_fields)
+rtree = tpcf.tree(X_random, rand_fields)
 
 # get the correlation function results
 results = tpcf.twopoint(dtree, rtree, radii,

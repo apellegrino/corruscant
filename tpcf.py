@@ -121,7 +121,7 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_field
 
     return counts[:N_fields+1]
 
-def validate_array(arr):
+def validate_points(arr):
     if not type(arr) is np.ndarray:
         arr = np.array(arr)
 
@@ -136,6 +136,16 @@ def validate_array(arr):
         raise ValueError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
 
     return arr
+
+def validate_fields(fields, points):
+    fields = np.array(fields)
+
+    N_points = max(points.shape)
+
+    if fields.shape != (N_points,):
+        raise ValueError("Field IDs must be a 1-d array of length equal to the number of points")
+
+    return fields
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
     f = float(rsize)/dsize
@@ -204,22 +214,19 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     return data
 
 class tree:
-    def __init__(self, points, fields, N_fields):
-        points = validate_array(points)
+    def __init__(self, points, fields):
+        points = validate_points(points)
 
-        if N_fields < 1:
-            raise ValueError("Trees must have at least one field")
+        fields = validate_fields(fields, points)
+        
+        self.N_fields = np.unique(fields).size
 
         self.points = points
         self.size = points.shape[1]
         self.fields = fields
-        self.N_fields = N_fields
         self.field_sizes = self._calc_field_sizes()
 
-        if len(fields) != self.size:
-            raise ValueError("Field array must be the same size as the data set")
-        else:
-            self.ctree = _make_tree(points, fields, N_fields)
+        self.ctree = _make_tree(points, fields, self.N_fields)
 
     def _calc_field_sizes(self):
         fields = self.fields
