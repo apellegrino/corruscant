@@ -105,6 +105,8 @@ def _make_tree(points, fields, N_fields=1):
 
 def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_fields=0):
     points_x, points_y, points_z = _unpack(points)
+
+    N_fields = tree.N_fields
     
     # numpy will use 64-bit ints unless otherwise specified
     # type change must happen on ITS OWN LINE!
@@ -126,24 +128,26 @@ def validate_points(arr):
         arr = np.array(arr)
 
     if not (arr.ndim == 2):
-        raise ValueError("Array must be two-dimensional (i.e. a list of points)")
+        raise ValueError("Point array must be two-dimensional (i.e. a \
+                        list of points)")
 
     # try to make array of shape (3, N) if shape is (N, 3)
     if (arr.shape[1] == 3):
         arr = arr.T
 
     if not(arr.shape[0] == 3):
-        raise ValueError("Array must be of shape (3, N) or (N, 3). The provided array has shape %s" % str(arr.shape))
+        raise ValueError("Array must be of shape (3, N) or (N, 3). The \
+                        provided array has shape %s" % str(arr.shape))
 
     return arr
 
 def validate_fields(fields, points):
     fields = np.array(fields)
-
     N_points = max(points.shape)
 
     if fields.shape != (N_points,):
-        raise ValueError("Field IDs must be a 1-d array of length equal to the number of points")
+        raise ValueError("Field IDs must be a 1-d array of length equal to \
+                        the number of points")
 
     return fields
 
@@ -173,7 +177,7 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     (default "landy-szalay")
         Possible values: "standard", "landy-szalay", "hamilton"
 
-    err_type -- a string defining what type of error to calculate. (default None)
+    err_type (str) -- what type of error to calculate. (default None)
         Possible values: "jackknife", "field-to-field", "poisson", None
 
     num_threads -- the maximum number of threads that the C code will create.
@@ -181,8 +185,8 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     your machine. (default 4)
 
     Return:
-    A twopoint_data object containing pair count arrays, the estimator array,
-    error and covariance matrix functions and the error type
+    A twopoint_data object containing pair count arrays, estimator, error and
+    covariance matrix functions and the error type
     """
 
     if data_tree.N_fields != rand_tree.N_fields:
@@ -200,13 +204,25 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     valid_err_types = ["jackknife", "field-to-field", "poisson", None]
     if err_type not in valid_err_types:
         raise ValueError("Estimator error type %s not valid" % err_type)
+    if data_tree.fields is None and err_type is not None:
+        raise ValueError("Error cannot be calculated when data tree has no fields")
+    if rand_tree.fields is None and err_type is not None:
+        raise ValueError("Error cannot be calculated when random tree has no fields")
 
-    dd_array = np.diff([_query_tree(data_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
-    dr_array = np.diff([_query_tree(rand_tree, data_tree.points, r, num_threads, err_type, data_tree.fields, data_tree.N_fields) for r in radii], axis=0)
+    dd = lambda r: _query_tree(data_tree, data_tree.points, r, num_threads,
+                                err_type, data_tree.fields)
+    dd_array = np.diff([dd(r) for r in radii], axis=0)
+
+    dr = lambda r: _query_tree(rand_tree, data_tree.points, r, num_threads,
+                                err_type, data_tree.fields)
+    dr_array = np.diff([dr(r) for r in radii], axis=0)
 
     rr_array = None
     if not est_type == "standard":
-        rr_array = np.diff([_query_tree(rand_tree, rand_tree.points, r, num_threads, err_type, rand_tree.fields, rand_tree.N_fields) for r in radii], axis=0)
+        rr = lambda r: _query_tree(rand_tree, rand_tree.points, r,
+                                    num_threads, err_type, rand_tree.fields)
+        rr_array = np.diff([rr(r) for r in radii], axis=0)
+    
 
     data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree, estimator, radii)
     data.error_type = err_type
@@ -214,17 +230,32 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     return data
 
 class tree:
-    def __init__(self, points, fields):
+    def __init__(self, points, fields=None):
         points = validate_points(points)
 
-        fields = validate_fields(fields, points)
-        
-        self.N_fields = np.unique(fields).size
+        if fields is None:
+            self.fields = None
+            self.N_fields = 0
+        else: 
+            fields = validate_fields(fields, points)
+
+            self.N_fields = np.unique(fields).size
+
+            if self.N_fields < 2:
+                raise ValueError("At least two unique field IDs must be provided")
+
+            min_field, max_field = np.min(fields), np.max(fields)
+
+            if min_field != 1:
+                raise ValueError("Minimum field ID must be 1")
+            if max_field != self.N_fields:
+                raise ValueError("Maximum field ID must be the same as the number \
+                                        of unique field IDs (%d)" % self.N_fields)
+            self.fields = fields
+            self.field_sizes = self._calc_field_sizes()
 
         self.points = points
         self.size = points.shape[1]
-        self.fields = fields
-        self.field_sizes = self._calc_field_sizes()
 
         self.ctree = _make_tree(points, fields, self.N_fields)
 
@@ -259,9 +290,9 @@ class twopoint_data:
             return self.dd[:,fid], self.dr[:,fid], self.rr[:,fid]
 
     def estimate(self):
-        func = self.estimator
+        estfunc = self.estimator
         dd, dr, rr = self.total_pair_counts()
-        self.estimation = func(dd, dr, rr, self.dtree.size, self.rtree.size)
+        self.estimation = estfunc(dd, dr, rr, self.dtree.size, self.rtree.size)
         return self.estimation
 
     def covariance(self):
@@ -271,14 +302,14 @@ class twopoint_data:
         if self.error_type is None:
             return None, None
     
-        if self.error_type == "poisson":
+        elif self.error_type == "poisson":
             with np.errstate(divide='ignore', invalid='ignore'):
                 error = np.divide(1 + estimation,np.sqrt(dd_tot))
                 error[np.isneginf(error)] = np.nan
                 error[np.isinf(error)] = np.nan
             return error, None
 
-        if self.error_type == "jackknife":
+        elif self.error_type == "jackknife":
             # sizes with one field out
             dfield_sizes = self.dtree.size - self.dtree.field_sizes
             rfield_sizes = self.rtree.size - self.rtree.field_sizes
