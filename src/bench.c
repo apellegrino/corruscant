@@ -10,7 +10,7 @@
 #include "kdtree.h"
 #endif
 
-#define SIZE 400000
+#define SIZE 4000
 
 int main(int argc, char *argv[]) {
 
@@ -64,8 +64,8 @@ int main(int argc, char *argv[]) {
     printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)
                                 + (finish.tv_nsec-start.tv_nsec)/1e9);
     printf("A node is %d bytes.\n", nodesize());
-    verify_main(data_tree,0);
+    verify_tree(data_tree,X);
     printf("Done verifying\n");
-    printf("The tree has %d nodes.\n", count_main(data_tree));
+    printf("The tree has %d nodes.\n", count_tree(data_tree));
     return 0;
 }

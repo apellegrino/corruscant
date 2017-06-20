@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 
 #ifndef KDTREE_H
 #define KDTREE_H
@@ -74,9 +73,11 @@ static void quick_argsort(double *a, int *b, int left, int right)
     quick_argsort(a,b,j+1,right);
 }
 */
+
 /* 
- *  perform a merge sort on the array a[left] to a[right] which performs
- *  identical operations on another array b[left] to b[right]
+ *  perform a merge sort on the array a[left] to a[right] on doubles,
+ *  which performs identical operations on another array b[left] to b[right]
+ *  on ints
  */
 static void merge_argsort(double *a, int *b, int left, int right)
 {
@@ -145,8 +146,8 @@ static void merge_argsort(double *a, int *b, int left, int right)
 }
 
 /*
- * Return a pointer to an array of ints which index the input array in
- * ascending order of values
+ *  Return a pointer to an array of ints which index the input array in
+ *  ascending order of values
  */
 static int * argsort(double *a, int size)
 {
@@ -276,11 +277,13 @@ static inline void set_id(node_t * node, int id)
     node->flags |= ID_MASK & (id << 2);
 }
 
+/* Flag node as having a left child */
 static inline void set_lchild(node_t * node)
 {
     node->flags |= HAS_LCHILD;
 }
 
+/* Flag node as having a right child */
 static inline void set_rchild(node_t * node)
 {
     node->flags |= HAS_RCHILD;
@@ -313,8 +316,8 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     }
 
     /* 
-     * Base cases: subtree of size 1, 2 or 3
-     * Skip partitioning step
+     *  Base cases: subtree of size 1, 2 or 3
+     *  Skip partitioning step
      */
 
     switch(right-left) {
@@ -333,7 +336,7 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     }
 
     /*
-     * Recursive cases: size > 2
+     *  Recursive cases: size > 2
      */
 
     /*  partition index array of other dims w.r.t. current dim */

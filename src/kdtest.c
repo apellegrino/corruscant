@@ -41,11 +41,11 @@ unsigned long long hash(kdtree_t t)
     return _hash(t.node_data,1);
 }
 
-static void verify(node_t * data, int index, enum dim d) {
+static void _verify(node_t * data, int index, enum dim d) {
 	d=d%3;
 
     node_t *parent, *lc, *rc;
-    char *errmsg = "node %p should not be %s child of %p (%lf, %lf) \n";
+    char *errmsg = "node %p should not be %s child of %p\n";
     int comp = 1;
 
     parent = data + index;
@@ -64,9 +64,9 @@ static void verify(node_t * data, int index, enum dim d) {
             break;
 		}
         if(comp) {
-            fprintf(stderr,errmsg,left_child(index),"left",index);
+            fprintf(stderr,errmsg,lc,"left",parent);
         }
-		verify(data,left_child(index),d+1);
+		_verify(data,left_child(index),d+1);
 	}
 	if (parent->flags & HAS_RCHILD) {
         rc = data + right_child(index);
@@ -82,25 +82,25 @@ static void verify(node_t * data, int index, enum dim d) {
             break;
 		}
         if(comp) {
-            fprintf(stderr,errmsg,right_child(index),"right",index);
+            fprintf(stderr,errmsg,rc,"right",parent);
         }
-		verify(data,right_child(index),d+1);
+		_verify(data,right_child(index),d+1);
 	}
 }
 
-void verify_main(kdtree_t t, enum dim d)
+void verify_tree(kdtree_t t, enum dim d)
 {
-    verify(t.node_data,1,d);
+    _verify(t.node_data,1,d);
 }
 
-static int count(kdtree_t t, int index)
+static int _count(kdtree_t t, int index)
 {
     node_t * p = t.node_data + index;
     if(!(p->flags & HAS_RCHILD)) return (p->flags & HAS_LCHILD) + 1;
-    return (count(t, left_child(index)) + count(t, right_child(index)) + 1);
+    return (_count(t, left_child(index)) + _count(t, right_child(index)) + 1);
 }
 
-int count_main(kdtree_t t)
+int count_tree(kdtree_t t)
 {
-    return count(t,1);
+    return _count(t,1);
 }
