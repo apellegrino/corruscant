@@ -176,7 +176,7 @@ void * twopoint_wrap(void *voidargs)
     args->counters[rank] = new_counter;
    
     for(i=start; i<stop; i++) {
-        radius(1, 0, i, args->r, args->counters[rank]);
+        radius(1, X, i, args->r, args->counters[rank]);
     }
 
     return NULL;
@@ -229,8 +229,10 @@ static long long * pair_count(kdtree_t tree, array3d_t data, double r, int num_t
         for(j=0; j<num_fields+1; j++) {
             results[j] += ((ss.counters[i])->array)[j];
         }
+        free(ss.counters[i]->array);
         free(ss.counters[i]);
     }
+    free(ss.counters);
     return results;
 }
 
