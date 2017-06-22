@@ -10,11 +10,11 @@
 #include "kdtree.h"
 #endif
 
-#define SIZE 4000
+#define SIZE 400000
 
 int main(int argc, char *argv[]) {
 
-    int num_threads = 32;
+    int num_threads = 1;
 
     int i;
     int n = SIZE;

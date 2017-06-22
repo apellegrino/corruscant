@@ -14,6 +14,23 @@ static node_t * _tree_data;
 static int _include;
 static int _use_err;
 
+static void incj(field_counter_t * counter, int field)
+{
+    int i;
+    for(i=0; i<=counter->nfields; i++) {
+        (counter->array[i])++;
+    }
+    (counter->array[field])--;
+    return;
+}
+
+static void incf(field_counter_t * counter, int field)
+{
+    (counter->array[0])++;
+    (counter->array[field])++;
+    return;
+}
+
 static void count_node(FLOAT n, FLOAT rsq, field_counter_t * counter, int this_field, int query_field)
 {
     if (n < rsq) {
