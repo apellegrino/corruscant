@@ -49,21 +49,6 @@ static inline double norm2(double a, double b, double c)
     return a*a+b*b+c*c;
 }
 
-static inline int get_field(node_t p)
-{
-    return (p.flags & ID_MASK) >> 2;
-}
-
-static inline int has_lchild(node_t p)
-{
-    return p.flags & HAS_LCHILD;
-}
-
-static inline int has_rchild(node_t p)
-{
-    return p.flags & HAS_RCHILD;
-}
-
 /*
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.
@@ -74,7 +59,7 @@ static void radius(int pi, enum dim d, int qi, double r, field_counter_t * count
     double x, y, z;
     node_t p = *(_tree_data+pi);
 
-    int this_field = get_field(p);
+    int this_field = p.id;
     
     x = (double) _x_query[qi]; y = (double) _y_query[qi]; z = (double) _z_query[qi];
     int query_field = _field_query[qi];
@@ -86,12 +71,12 @@ static void radius(int pi, enum dim d, int qi, double r, field_counter_t * count
     dx = p.x - x; dy = p.y - y; dz = p.z - z;
 
     double n = norm2(dx,dy,dz);
-    if( !has_lchild(p) ) { /* no children */
+    if( !p.has_lchild ) { /* no children */
 
         count_node(n, rsq, counter, this_field, query_field);
         return;
 
-    } else if ( !has_rchild(p) ) { /* one child */
+    } else if ( !p.has_rchild ) { /* one child */
 
         count_node(n, rsq, counter, this_field, query_field);
         radius(left_child(pi),next_dim(d),qi,r,counter);

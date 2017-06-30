@@ -19,10 +19,9 @@ enum dim { X=0, Y=1, Z=2 };
 
 typedef struct node {
     double x, y, z;
-    unsigned short flags;
     unsigned int has_lchild:1;
     unsigned int has_rchild:1;
-    unsigned int id:14;
+    unsigned int id:8;
 } node_t;
 
 typedef struct field_counter {
