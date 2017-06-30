@@ -13,6 +13,8 @@
 #include "kdtree.h"
 #endif
 
+#define ROOT 1
+
 static inline void swapDouble(double * a, double * b)
 {
     double temp;
@@ -44,35 +46,6 @@ static inline int median(int left, int right)
     return (left+right+1)/2;
 }
 
-/* 
- *  perform a quicksort on the array a[left] to a[right] which performs
- *  identical operations on another array b[left] to b[right]
- */
-/*
-static void quick_argsort(double *a, int *b, int left, int right)
-{
-    int i, j;
-    double pivot;
-
-    if( right <= left ) return;
-
-    pivot = a[left];
-    i = left;
-    j = right+1;
-
-    while(1) {
-        do ++i; while( a[i] <= pivot && i <= right );
-        do --j; while( a[j] > pivot );
-        if( i >= j ) break;
-        swapDouble(a+i,a+j);
-        swapInt(b+i,b+j);
-    }
-    swapDouble(a+left,a+j);
-    swapInt(b+left,b+j);
-    quick_argsort(a,b,left,j-1);
-    quick_argsort(a,b,j+1,right);
-}
-*/
 
 /* 
  *  perform a merge sort on the array a[left] to a[right] on doubles,
@@ -156,7 +129,7 @@ static int * argsort(double *a, int size)
     double *acpy = (double *) malloc(sizeof(double)*size);
     memcpy(acpy, a, sizeof(double)*size);
 
-    int *ind = (int*) malloc(sizeof(int)*size);
+    int * ind = (int*) malloc(sizeof(int)*size);
     int i;
 
     /* initialize array of indices */
@@ -171,30 +144,32 @@ static int * argsort(double *a, int size)
     return ind;
 }
 
-static inline double * get_data_array(kdtree_t tree, enum dim d)
+//static inline double * get_data_array(kdtree_t tree, enum dim d)
+double * get_data_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
-        return tree.data.x;
+        return tree.x;
     case Y:
-        return tree.data.y;
+        return tree.y;
     case Z:
-        return tree.data.z;
+        return tree.z;
     default:
         return NULL;
     }
 
 }
 
-static inline int * get_arg_array(kdtree_t tree, enum dim d)
+//static inline int * get_arg_array(kdtree_t tree, enum dim d)
+int * get_arg_array(kdtree_t tree, enum dim d)
 {
     switch(d) {
     case X:
-        return tree.arg_data.x;
+        return tree.x_arg;
     case Y:
-        return tree.arg_data.y;
+        return tree.y_arg;
     case Z:
-        return tree.arg_data.z;
+        return tree.z_arg;
     default:
         return NULL;
     }
@@ -207,32 +182,36 @@ static inline int * get_arg_array(kdtree_t tree, enum dim d)
  *  Leave a null value in the middle in place of the index that locates "key"
  *  inside "vals".
  */
-static void partition(kdtree_t tree, int left, int right, enum dim d_key,
+static void partition(kdtree_t * tree, int left, int right, enum dim d_key,
                       enum dim d_part)
 {
     double * vals;
     int * args;
-    vals = get_data_array(tree, d_key);
-    args = get_arg_array(tree, d_part);
+    vals = get_data_array(*tree, d_key);
+    args = get_arg_array(*tree, d_part);
 
     int med_index = median(left,right);
-    int med_arg = *(get_arg_array(tree,d_key) + med_index);
+    int med_arg = (get_arg_array(*tree,d_key))[med_index];
     double key = vals[med_arg];
 
+    int i, size;
     int split = med_index - left;
-
-    int i, j, k, size;
-
-    j = 0;
-    k = split+1;
     size = right-left+1;
+
     int *args_new = (int*) malloc(sizeof(int)*size);
 
+    // this value should not be used again
     args_new[split] = -1;
 
+    // partition `args` on the range `left` to `right` compared to the key
     int arg;
+    int j = 0;
+    int k = split+1;
+
     for(i=left; i<=right; i++) {
+
         arg = args[i];
+
         if (arg == med_arg) continue;
         if (vals[arg] < key) {
             args_new[j] = arg;
@@ -240,11 +219,18 @@ static void partition(kdtree_t tree, int left, int right, enum dim d_key,
         } else if (vals[arg] > key) {
             args_new[k] = arg;
             k++;
+        } else {
+            // edge case of float equality. Partition cannot handle
+            // duplicate values
+            fprintf(stderr, "Two equal floating point numbers found!\n");
+            exit(1);
         }
+
     }
 
     memcpy(args+left,args_new,size*sizeof(int));
     free(args_new);
+
 }
 
 inline int left_child(int p)
@@ -265,11 +251,6 @@ enum dim inline next_dim(enum dim d)
 void destroy(kdtree_t t)
 {
     free(t.node_data);
-
-    // Have these already been freed?
-    //free(t.data.x);
-    //free(t.data.y);
-    //free(t.data.z);
 }
 
 static inline void set_id(node_t * node, int id)
@@ -289,27 +270,27 @@ static inline void set_rchild(node_t * node)
     node->flags |= HAS_RCHILD;
 }
 
-void build(kdtree_t tree, int ind, int left, int right, enum dim d)
+void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
 {
     double *x, *y, *z;
     int *ids;
     int med, med_arg, this_id;
 
-    node_t * parent = tree.node_data + ind;
+    node_t * parent = tree->node_data + ind;
     parent->flags = 0;
 
-    x = tree.data.x; y = tree.data.y; z = tree.data.z;
+    x = tree->x; y = tree->y; z = tree->z;
 
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = median(left,right);
 
     /* Find index of the median in appropriate position list */
-    med_arg = (get_arg_array(tree, d))[med];
+    med_arg = (get_arg_array(*tree, d))[med];
 
     /* the median point in dim d has index med_arg */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
 
-    ids = tree.data.fields;
+    ids = tree->fields;
     if (ids != NULL) {
         this_id = ids[med_arg];
         set_id(parent, this_id);
@@ -363,6 +344,7 @@ void build(kdtree_t tree, int ind, int left, int right, enum dim d)
     return;
 }
 
+/*
 argarray3d_t array3d_argsort(array3d_t data)
 {
     argarray3d_t arg;
@@ -372,6 +354,7 @@ argarray3d_t array3d_argsort(array3d_t data)
     arg.size = data.size;
     return arg;
 }
+*/
 
 static int pow2ceil(int x)
 {
@@ -389,7 +372,7 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(array3d_t data)
+/*
 {
     kdtree_t tree;
     tree.size = data.size;
@@ -398,15 +381,43 @@ kdtree_t tree_construct(array3d_t data)
 
     tree.data = data;
 
-    /* Argsort the inputs */
     tree.arg_data = array3d_argsort(tree.data);
 
-    build(tree, 1, 0, data.size-1, X );
+    build(&tree, ROOT, 0, data.size-1, X );
 
-    /* argsort key arrays are only necessary for building the tree */
+    // argsort key arrays are only necessary for building the tree
     free(tree.arg_data.x);
     free(tree.arg_data.y);
     free(tree.arg_data.z);
+
+    return tree;
+}
+*/
+
+kdtree_t tree_construct(double * x, double * y, double * z, int * fields, int length, int num_fields)
+{
+    kdtree_t tree;
+    tree.size = length;
+    tree.memsize = pow2ceil(length);
+    tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
+
+    tree.x = x;
+    tree.y = y;
+    tree.z = z;
+    tree.fields = fields;
+    tree.num_fields = num_fields;
+
+    /* Argsort the inputs */
+    tree.x_arg = argsort(x, length);
+    tree.y_arg = argsort(y, length);
+    tree.z_arg = argsort(z, length);
+
+    build( &tree, ROOT, 0, length-1, X );
+
+    /* argsort key arrays are only necessary for building the tree */
+    free(tree.x_arg);
+    free(tree.y_arg);
+    free(tree.z_arg);
 
     return tree;
 }

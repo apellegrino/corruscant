@@ -14,7 +14,7 @@
 
 int main(int argc, char *argv[]) {
 
-    int num_threads = 1;
+    int num_threads = 16;
 
     int i;
     int n = SIZE;
@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
         f[i] = 1 + (long long) rand() * num_fields / ((long long)RAND_MAX+1);
     }
 
+    /*
     array3d_t data;
     data.x = x;
     data.y = y;
@@ -45,16 +46,19 @@ int main(int argc, char *argv[]) {
     data.fields = f;
     data.num_fields = num_fields;
     data.size = n;
+    */
     
     printf("Generated random data...\n");
-    kdtree_t data_tree = tree_construct(data);
+    //kdtree_t data_tree = tree_construct(data);
+    kdtree_t data_tree = tree_construct(x, y, z, f, SIZE, num_fields);
     printf("Constructed k-d tree...\n");
 
     double radius = 0.05;
     struct timespec start, finish;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
+    //long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
+    long long * output = pair_count_jackknife(data_tree, x, y, z, f, SIZE, num_fields, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
     for(i=0; i<num_fields+1; i++) {
         printf("%lld ", output[i]);
