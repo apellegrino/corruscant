@@ -26,8 +26,8 @@ unsigned long long _hash(node_t * data, int i)
     node_t n = *(data+i);
     unsigned long long sum = node_hash(data+i);
 
-    if(n.flags & HAS_LCHILD) {
-        if(n.flags & HAS_RCHILD) {
+    if(n.has_lchild) {
+        if(n.has_rchild) {
             sum += _hash(data,right_child(i));
         }
         sum += 2 * _hash(data,left_child(i));
@@ -50,7 +50,7 @@ static void _verify(node_t * data, int index, enum dim d) {
 
     parent = data + index;
 
-	if (parent->flags & HAS_LCHILD) {
+	if (parent->has_lchild) {
         lc = data + left_child(index);
 		switch(d) {
         case X:
@@ -68,7 +68,7 @@ static void _verify(node_t * data, int index, enum dim d) {
         }
 		_verify(data,left_child(index),d+1);
 	}
-	if (parent->flags & HAS_RCHILD) {
+	if (parent->has_rchild) {
         rc = data + right_child(index);
 		switch(d) {
         case X:
@@ -96,7 +96,7 @@ void verify_tree(kdtree_t t, enum dim d)
 static int _count(kdtree_t t, int index)
 {
     node_t * p = t.node_data + index;
-    if(!(p->flags & HAS_RCHILD)) return (p->flags & HAS_LCHILD) + 1;
+    if(!(p->has_rchild)) return (p->has_lchild) + 1;
     return (_count(t, left_child(index)) + _count(t, right_child(index)) + 1);
 }
 

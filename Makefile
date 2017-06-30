@@ -1,7 +1,5 @@
 CC= gcc
 CFLAGS= -O2 -Wall
-#CFLAGS= -g -Wall
-BIN_NAMES= bench libkdtree.so
 SRC= src
 BIN= bin
 OBJ= obj
@@ -12,15 +10,24 @@ all: python benchmark
 python: mkdirs ${BIN}/libkdtree.so
 
 .PHONY: benchmark
-benchmark: mkdirs ${BIN}/bench
+benchmark: mkdirs ${BIN}/kdbench
 
-${BIN}/libkdtree.so: ${SRC}/build.c ${SRC}/query.c ${SRC}/kdtest.c
+${BIN}/libkdtree.so: ${SRC}/kdbuild.c ${SRC}/kdquery.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
 
-${BIN}/bench: ${OBJ}/bench.o ${OBJ}/build.o ${OBJ}/query.o ${OBJ}/kdtest.o
+${BIN}/libvptree.so: ${SRC}/vpbuild.c
+	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
+
+${BIN}/kdbench: ${OBJ}/kdbench.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest.o
 	${CC} $^ -lpthread -lrt -o $@
 
-${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/build.o ${OBJ}/query.o
+${BIN}/kdbench_ang: ${OBJ}/kdbench_ang.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest.o
+	${CC} $^ -lpthread -lrt -lm -o $@
+
+${BIN}/vpbench: ${OBJ}/vpbench.o ${OBJ}/vpbuild.o
+	${CC} $^ -lrt -lm -o $@
+
+${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o
 	${CC} $^ -o $@
 
 ${OBJ}/%.o: ${SRC}/%.c
@@ -32,4 +39,4 @@ mkdirs:
 
 .PHONY: clean
 clean:
-	rm -f ${OBJ}/*.o ${BIN}/bench ${BIN}/*.so *.pyc ${BIN_NAMES}
+	rm -f ./${OBJ}/*.o ./${BIN}/* *.pyc
