@@ -1,6 +1,7 @@
 from ctypes import CDLL, Structure, POINTER, c_double, c_int, c_longlong
 from os.path import abspath, dirname
 import numpy as np
+#import warnings
 
 class node(Structure):
     pass
@@ -38,7 +39,8 @@ kdlib.destroy.restype = None
 kdlib.destroy.argtypes = [kdtree]
 
 # returning array w/ numbers of pair counts
-kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
+kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
+                                                            shape=(255,) )
 
 kdlib.pair_count_jackknife.argtypes = [
                             kdtree, # tree to query
@@ -52,7 +54,8 @@ kdlib.pair_count_jackknife.argtypes = [
                             c_int, # num_threads
                             ]
 
-kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
+kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
+                                                      shape=(255,) )
 
 kdlib.pair_count_ftf.argtypes = [
                             kdtree, # tree to query
@@ -66,7 +69,8 @@ kdlib.pair_count_ftf.argtypes = [
                             c_int, # num_threads
                             ]
 
-kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong, shape=(255,))
+kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
+                                                        shape=(255,) )
 
 kdlib.pair_count_noerr.argtypes = [
                             kdtree, # tree to query
@@ -78,13 +82,8 @@ kdlib.pair_count_noerr.argtypes = [
                             c_int, # num_threads
                             ]
 
-def _make_tree(points, fields, N_fields):
-    x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in points]
-    f = fields.ctypes.data_as(POINTER(c_int))
-
-    return kdlib.tree_construct(x, y, z, f, c_int(points.shape[1]), c_int(N_fields))
-
-def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_fields=0):
+def _query_tree(tree, points, radius, num_threads, errtype, fields=None,
+                N_fields=0):
     x, y, z = points
 
     N_fields = tree.N_fields
@@ -92,14 +91,14 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_field
     counts = None
     if errtype == 'jackknife':
         counts = kdlib.pair_count_jackknife(tree.ctree,
-                                            x.ctypes.data_as(POINTER(c_double)),
-                                            y.ctypes.data_as(POINTER(c_double)),
-                                            z.ctypes.data_as(POINTER(c_double)),
-                                            fields.ctypes.data_as(POINTER(c_int)),
-                                            c_int(points.shape[1]),
-                                            c_int(N_fields),
-                                            c_double(radius),
-                                            c_int(num_threads)
+                                        x.ctypes.data_as(POINTER(c_double)),
+                                        y.ctypes.data_as(POINTER(c_double)),
+                                        z.ctypes.data_as(POINTER(c_double)),
+                                        fields.ctypes.data_as(POINTER(c_int)),
+                                        c_int(points.shape[1]),
+                                        c_int(N_fields),
+                                        c_double(radius),
+                                        c_int(num_threads)
                                             )
     elif errtype == 'field-to-field':
         counts = kdlib.pair_count_ftf(tree.ctree,
@@ -124,66 +123,65 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None, N_field
 
     return counts[:N_fields+1]
 
-def duplicate_mask(arr):
-    int = []
-    for dim in arr:
-        asort = np.argsort(dim, kind='mergesort')
-        i = 0
-        while i < len(asort) - 1:
-            k = asort[i]
-            while dim[asort[i]] == dim[asort[i+1]]:
-                asort = np.delete(asort, i+1)
-                print "Deleting %f %f" % (dim[asort[i+1]], dim[asort[i]])
-            i += 1
+#def duplicate_mask(arr):
+#    int = []
+#    for dim in arr:
+#        asort = np.argsort(dim, kind='mergesort')
+#        i = 0
+#        while i < len(asort) - 1:
+#            k = asort[i]
+#            while dim[asort[i]] == dim[asort[i+1]]:
+#                asort = np.delete(asort, i+1)
+#                print "Deleting %f %f" % (dim[asort[i+1]], dim[asort[i]])
+#            i += 1
+#
+#        int.append(asort)
+#    mask = reduce(np.intersect1d, int)
+#    return mask
 
-        int.append(asort)
-    mask = reduce(np.intersect1d, int)
-    return mask
+def validate_points(points):
+    if not type(points) is np.ndarray:
+        points = np.array(points)
 
-def validate_points(arr):
-    if not type(arr) is np.ndarray:
-        arr = np.array(arr)
-
-    if not (arr.ndim == 2):
-        raise ValueError("Point array must be two-dimensional (i.e. a \
-                        list of points)")
+    if not (points.ndim == 2):
+        raise ValueError("Point array must be two-dimensional (i.e. a list of "
+                         "points)")
 
     # try to make array of shape (3, N) if shape is (N, 3)
-    if (arr.shape[1] == 3):
-        arr = arr.T
+    if (points.shape[1] == 3):
+        points = points.T
 
-    if not(arr.shape[0] == 3):
-        raise ValueError("Array must be of shape (3, N) or (N, 3). The \
-                        provided array has shape %s" % str(arr.shape))
+    if not(points.shape[0] == 3):
+        raise ValueError("Array must be of shape (3, N) or (N, 3). The "
+                         "provided array has shape %s" % str(points.shape))
 
-    # remove duplicates
-    mask = duplicate_mask(arr)
-    #return mask, arr[:,mask]
-    newarr = np.require(arr, requirements='COA')
+    newpoints = np.require(points, requirements='COA')
 
-    if newarr is not arr:
-        print "Input data array of size %d was copied" % arr.shape[1]
+    #if newpoints is not points:
+    #    warnings.warn("Data array of size %d is being copied to have shape %s"
+    #                 % (points.size, str(newpoints.shape)), RuntimeWarning)
 
-    return newarr
+    return newpoints
 
 def validate_fields(fields, points):
     fields = np.array(fields)
     N_points = max(points.shape)
 
     if fields.shape != (N_points,):
-        raise ValueError("Field IDs must be a 1-d array of length equal to \
-                        the number of points")
+        raise ValueError("Field IDs must be a 1-d array of length equal to "
+                         "the number of points")
 
-    newfields = np.require(fields, dtype='int32')
+    newfields = np.require(fields, dtype='int32', requirements='COA')
 
-    if newfields is not fields:
-        print "Input field array of size %d was copied" % N_points
+    #if newfields is not fields:
+    #    warnings.warn("Field array of size %d is being copied to have type "
+    #                  "int32" % fields.size, RuntimeWarning)
 
     return newfields
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
     f = float(rsize)/dsize
-    return ( f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr) ) / np.array(rr)
+    return (f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr)) / np.array(rr)
 
 def est_hamilton(dd,dr,rr,dsize,rsize):
     return np.divide( np.multiply(dd,rr).astype("float64"),
@@ -220,7 +218,8 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     """
 
     if data_tree.N_fields != rand_tree.N_fields:
-        raise ValueError("data and random trees must have same number of fields")
+        raise ValueError("data and random trees must have same number of "
+                         "fields")
 
     if est_type == "landy-szalay":
         estimator = est_landy_szalay
@@ -235,9 +234,11 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     if err_type not in valid_err_types:
         raise ValueError("Estimator error type %s not valid" % err_type)
     if data_tree.fields is None and err_type is not None:
-        raise ValueError("Error cannot be calculated when data tree has no fields")
+        raise ValueError("Error cannot be calculated when data tree has no "
+                         "fields")
     if rand_tree.fields is None and err_type is not None:
-        raise ValueError("Error cannot be calculated when random tree has no fields")
+        raise ValueError("Error cannot be calculated when random tree has no "
+                         "fields")
 
     dd = lambda r: _query_tree(data_tree, data_tree.points, r, num_threads,
                                 err_type, data_tree.fields)
@@ -254,7 +255,9 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
         rr_array = np.diff([rr(r) for r in radii], axis=0)
     
 
-    data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree, estimator, radii)
+    data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree,
+                         estimator, radii)
+
     data.error_type = err_type
 
     return data
@@ -262,7 +265,6 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
 class tree:
     def __init__(self, points, fields=None):
 
-        #mask, points = validate_points(points)
         points = validate_points(points)
 
         if fields is None:
@@ -274,26 +276,40 @@ class tree:
             self.N_fields = np.unique(fields).size
 
             if self.N_fields < 2:
-                raise ValueError("At least two unique field IDs must be provided")
+                raise ValueError("At least two unique field IDs must be "
+                                 "provided")
 
             min_field, max_field = np.min(fields), np.max(fields)
 
             if min_field != 1:
                 raise ValueError("Minimum field ID must be 1")
             if max_field != self.N_fields:
-                raise ValueError("Maximum field ID must be the same as the number \
-                                        of unique field IDs (%d)" % self.N_fields)
+                raise ValueError("Maximum field ID must be the same as the "
+                                 "number of unique field IDs (%d)"
+                                 % self.N_fields)
             self.fields = fields
             self.field_sizes = self._calc_field_sizes()
 
         self.points = points
         self.size = points.shape[1]
 
-        self.ctree = _make_tree(points, fields, self.N_fields)
+        self._make_tree()
 
     def _calc_field_sizes(self):
-        fields = self.fields
-        return np.array([fields[fields == id].size for id in range(1,self.N_fields+1)])
+        f = self.fields
+        return np.array([f[f == id].size for id in range(1,self.N_fields+1)])
+
+    def _make_tree(self):
+        x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in self.points]
+
+        if self.fields is not None:
+            f = self.fields.ctypes.data_as(POINTER(c_int))
+            self.ctree = kdlib.tree_construct(x, y, z, f, 
+                                              c_int(self.points.shape[1]),
+                                              c_int(self.N_fields) )
+        else:
+            self.ctree = kdlib.tree_construct(x, y, z, None, 
+                                              c_int(self.points.shape[1]), 0 )
 
     def __del__(self):
         kdlib.destroy(self.ctree)
@@ -357,7 +373,8 @@ class twopoint_data:
 
         for fid in range(1,self.dtree.N_fields+1):
             dd, dr, rr = self.field_pair_counts(fid)
-            est_per_field = est_func(dd,dr,rr,dfield_sizes[fid-1],rfield_sizes[fid-1])
+            est_per_field = est_func(dd, dr, rr, 
+                                     dfield_sizes[fid-1],rfield_sizes[fid-1])
 
             diff = est_per_field - self.estimation
 
