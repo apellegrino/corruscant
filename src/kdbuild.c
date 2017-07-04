@@ -125,7 +125,7 @@ static void merge_argsort(double *a, int *b, int left, int right)
 static int * argsort(double *a, int size)
 {
 
-    /* copy "a" to keep "a" unchanged */
+    /* copy `a` to keep `a` unchanged */
     double *acpy = (double *) malloc(sizeof(double)*size);
     memcpy(acpy, a, sizeof(double)*size);
 
@@ -137,7 +137,7 @@ static int * argsort(double *a, int size)
         ind[i] = i;
 
     /*
-     * sort the copy of "a" while performing duplicate operations on "ind"
+     * sort the copy of `a` while performing duplicate operations on `ind`
      */
     merge_argsort(acpy, ind, 0, size-1);
     free(acpy);
@@ -177,10 +177,10 @@ static inline int * get_arg_array(kdtree_t tree, enum dim d)
 }
 
 /*
- *  Partition a section of the array "args" from indicies "left" to "right" as
- *  being either indicies to values in "vals" smaller or larger than the key.
- *  Leave a null value in the middle in place of the index that locates "key"
- *  inside "vals".
+ *  Partition a section of the array `args` from indicies `left` to `right` as
+ *  being either indicies to values in `vals` smaller or larger than the key.
+ *  Leave a null value in the middle in place of the index that locates `key`
+ *  inside `vals`.
  */
 static void partition(kdtree_t * tree, int left, int right, enum dim d_key,
                       enum dim d_part)
