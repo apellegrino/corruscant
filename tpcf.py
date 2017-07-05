@@ -180,7 +180,7 @@ def validate_fields(fields, points):
     return newfields
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
-    f = float(rsize)/dsize
+    f = float(rsize) / dsize
     return (f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr)) / np.array(rr)
 
 def est_hamilton(dd,dr,rr,dsize,rsize):
@@ -188,7 +188,7 @@ def est_hamilton(dd,dr,rr,dsize,rsize):
                       np.multiply(dr,dr).astype("float64") ) - 1.
 
 def est_standard(dd,dr,rr,dsize,rsize):
-    return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
+    return float(rsize) / dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
 def twopoint_angular(data_tree, rand_tree, radii, est_type="landy-szalay",
                      err_type='jackknife', num_threads=4):
@@ -386,7 +386,7 @@ class twopoint_data:
             diff = est_per_field - self.estimation
 
             # covariance matrix
-            rr_quotient = np.sqrt(rr.astype('float64')/rr_tot)
+            rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
             rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
             
             xi_subi, xi_subj = np.meshgrid(diff,diff)
