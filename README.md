@@ -81,3 +81,14 @@ print results.error()
 print "Covariance matrix"
 print results.covariance()
 ```
+
+### Memory Efficiency ###
+`clustering-tree` requires that input arrays be C-contiguous and that all values in each dimension come before any values in the next dimensions. Additionally, the array of integers describing field IDs must be of Numpy datatype `int32`. If the user's input does not match these requirements, the input will be copied to new arrays as necessary. If saving memory is critical, the user can update their data to be properly formatted using the `validate_points` and `validate_fields` functions:
+
+```
+#!python
+data = tpcf.validate_points(data)
+fields = tpcf.validate_fields(data)
+```
+
+This assures that the input arrays will not be copied when constructing a tree.
