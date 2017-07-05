@@ -88,7 +88,7 @@ print results.covariance()
 ```
 #!python
 data = tpcf.validate_points(data)
-fields = tpcf.validate_fields(data)
+fields = tpcf.validate_fields(fields)
 ```
 
 This assures that the input arrays will not be copied when constructing a tree.
