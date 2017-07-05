@@ -62,7 +62,11 @@ static void radius(int pi, enum dim d, int qi, double r, field_counter_t * count
     int this_field = p.id;
     
     x = (double) _x_query[qi]; y = (double) _y_query[qi]; z = (double) _z_query[qi];
-    int query_field = _field_query[qi];
+
+    int query_field = 0;
+    if(_field_query != NULL) {
+        query_field = _field_query[qi];
+    }
 
     double rsq, dx, dy, dz;
     double pos_upper = 0.0, pos_lower = 0.0, point = 0.0;

@@ -190,6 +190,13 @@ def est_hamilton(dd,dr,rr,dsize,rsize):
 def est_standard(dd,dr,rr,dsize,rsize):
     return float(rsize)/dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
+def twopoint_angular(data_tree, rand_tree, radii, est_type="landy-szalay",
+                     err_type='jackknife', num_threads=4):
+
+    radii = 2. * np.sin( np.array(radii) / 2. )
+    return twopoint(data_tree, rand_tree, radii, est_type=est_type,
+                    err_type=err_type, num_threads=num_threads)
+    
 def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
              err_type='jackknife', num_threads=4):
     """Given a set of 3D cartesian data points and random points, calculate the
@@ -391,8 +398,10 @@ class twopoint_data:
         return cov
 
     def error(self):
-        cov = self.covariance()
+        if self.error_type is None:
+            return None
 
+        cov = self.covariance()
         return np.sqrt(np.diagonal(cov))
 
     def normalized_covariance(self):
