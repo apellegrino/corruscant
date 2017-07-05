@@ -5,6 +5,6 @@
 
 int nodesize(void);
 
-void verify_tree(kdtree_t, enum dim);
+void verify_tree(kdtree_t);
 
 int count_tree(kdtree_t);

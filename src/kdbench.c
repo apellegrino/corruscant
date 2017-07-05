@@ -38,20 +38,13 @@ int main(int argc, char *argv[]) {
         f[i] = 1 + (long long) rand() * num_fields / ((long long)RAND_MAX+1);
     }
 
-    /*
-    array3d_t data;
-    data.x = x;
-    data.y = y;
-    data.z = z;
-    data.fields = f;
-    data.num_fields = num_fields;
-    data.size = n;
-    */
-    
     printf("Generated random data...\n");
-    //kdtree_t data_tree = tree_construct(data);
     kdtree_t data_tree = tree_construct(x, y, z, f, SIZE, num_fields);
     printf("Constructed k-d tree...\n");
+
+    verify_tree(data_tree);
+    printf("Done verifying\n");
+    printf("The tree has %d nodes.\n", count_tree(data_tree));
 
     double radius = 0.05;
     struct timespec start, finish;
@@ -68,8 +61,5 @@ int main(int argc, char *argv[]) {
     printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)
                                 + (finish.tv_nsec-start.tv_nsec)/1e9);
     printf("A node is %d bytes.\n", nodesize());
-    verify_tree(data_tree,X);
-    printf("Done verifying\n");
-    printf("The tree has %d nodes.\n", count_tree(data_tree));
     return 0;
 }

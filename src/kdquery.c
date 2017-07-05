@@ -53,12 +53,11 @@ static inline double norm2(double a, double b, double c)
  * Query how many points in the tree with head p lie within radius r of point
  * (x, y, z). Recursive.
  */
-static void radius(int pi, enum dim d, int qi, double r, field_counter_t * counter)
+static void radius(int pi, int qi, double r, field_counter_t * counter)
 {
     //int i;
     double x, y, z;
     node_t p = *(_tree_data+pi);
-
     int this_field = p.id;
     
     x = (double) _x_query[qi]; y = (double) _y_query[qi]; z = (double) _z_query[qi];
@@ -76,18 +75,16 @@ static void radius(int pi, enum dim d, int qi, double r, field_counter_t * count
 
     double n = norm2(dx,dy,dz);
     if( !p.has_lchild ) { /* no children */
-
         count_node(n, rsq, counter, this_field, query_field);
         return;
 
     } else if ( !p.has_rchild ) { /* one child */
-
         count_node(n, rsq, counter, this_field, query_field);
-        radius(left_child(pi),next_dim(d),qi,r,counter);
+        radius(left_child(pi),qi,r,counter);
         return;
 
     } else { /* two children */
-        switch(d) {
+        switch(p.dim) {
         case X:
             pos_upper = x+r;
             pos_lower = x-r;
@@ -106,13 +103,13 @@ static void radius(int pi, enum dim d, int qi, double r, field_counter_t * count
         }
 
         if (pos_upper < point) {
-            radius(left_child(pi),next_dim(d),qi,r,counter);
+            radius(left_child(pi),qi,r,counter);
         } else if (pos_lower > point) {
-            radius(right_child(pi),next_dim(d),qi,r,counter);
+            radius(right_child(pi),qi,r,counter);
         } else {
             count_node(n, rsq, counter, this_field, query_field);
-            radius(left_child(pi),next_dim(d),qi,r,counter);
-            radius(right_child(pi),next_dim(d),qi,r,counter);
+            radius(left_child(pi),qi,r,counter);
+            radius(right_child(pi),qi,r,counter);
         }
         return;
     }
@@ -165,7 +162,7 @@ void * twopoint_wrap(void *voidargs)
     args->counters[rank] = new_counter;
    
     for(i=start; i<stop; i++) {
-        radius(1, X, i, args->r, args->counters[rank]);
+        radius(1, i, args->r, args->counters[rank]);
     }
 
     return NULL;

@@ -22,6 +22,7 @@ typedef struct node {
     unsigned int has_lchild:1;
     unsigned int has_rchild:1;
     unsigned int id:8;
+    unsigned int dim:2;
 } node_t;
 
 typedef struct field_counter {

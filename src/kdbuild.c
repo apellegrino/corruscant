@@ -243,17 +243,32 @@ inline int right_child(int p)
     return 2*p+1;
 }
 
-enum dim inline next_dim(enum dim d)
-{
-    return (d+1)%3;
-}
-
 void destroy(kdtree_t t)
 {
     free(t.node_data);
 }
 
-void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
+double arg_variance(int * args, double * data, int begin, int end)
+{
+    double avg = 0;
+    double var = 0;
+    int i;
+    for(i=begin; i<=end; i++) {
+        avg += data[args[i]];
+    }
+
+    avg /= (end-begin+1);
+
+    for(i=begin; i<=end; i++) {
+        var += (data[args[i]] - avg)*(data[args[i]] - avg);
+    }
+
+    // unbiased estimator of variance with 1/(n-1) coeff.
+    //var /= (end-begin);
+    return var;
+}
+
+void build(kdtree_t * tree, int ind, int left, int right)
 {
     double *x, *y, *z;
     int *ids;
@@ -266,8 +281,25 @@ void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = median(left,right);
 
+    int tdim;
+    double x_var, y_var, z_var;
+    int temp;
+
+    tdim = 0;
+    if(right-left > 2) {
+        x_var = arg_variance(tree->x_arg, x, left, right);
+        y_var = arg_variance(tree->y_arg, y, left, right);
+        z_var = arg_variance(tree->z_arg, z, left, right);
+
+        // choose dim corresponding to max(x_var, y_var, z_var)
+        temp = x_var > y_var ? X : Y;
+        tdim = z_var > ( x_var > y_var ? x_var : y_var ) ? Z : temp;
+    }
+
+    parent->dim = tdim;
+
     /* Find index of the median in appropriate position list */
-    med_arg = (get_arg_array(*tree, d))[med];
+    med_arg = (get_arg_array(*tree, tdim))[med];
 
     /* the median point in dim d has index med_arg */
     parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
@@ -278,20 +310,24 @@ void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
     /* 
      *  Base cases: subtree of size 1, 2 or 3
      *  Skip partitioning step
+     *  TODO: make true base cases
      */
 
     switch(right-left) {
     case 0: /* array length 1, no children */
+        parent->has_lchild = 0;
+        parent->has_rchild = 0;
         return;
     case 1: /* array length 2, one child */
         parent->has_lchild = 1;
-        build(tree, left_child(ind), left,left,d);
+        parent->has_rchild = 0;
+        build(tree, left_child(ind), left, left);
         return;
     case 2: /* array length 3, two children */
         parent->has_lchild = 1;
         parent->has_rchild = 1;
-        build(tree, left_child(ind), left,left,d);
-        build(tree, right_child(ind), right,right,d);
+        build(tree, left_child(ind), left, left);
+        build(tree, right_child(ind), right, right);
         return;
     }
 
@@ -300,7 +336,7 @@ void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
      */
 
     /*  partition index array of other dims w.r.t. current dim */
-    switch(d) {
+    switch(tdim) {
     case X:
         partition(tree, left, right, X, Y);
         partition(tree, left, right, X, Z);
@@ -317,8 +353,8 @@ void build(kdtree_t * tree, int ind, int left, int right, enum dim d)
 
     parent->has_lchild = 1;
     parent->has_rchild = 1;
-    build(tree, left_child(ind), left,med-1,next_dim(d));
-    build(tree, right_child(ind), med+1,right,next_dim(d));
+    build(tree, left_child(ind), left, med-1);
+    build(tree, right_child(ind), med+1, right);
 
     return;
 }
@@ -357,7 +393,7 @@ kdtree_t tree_construct(double * x, double * y, double * z, int * fields, int le
     tree.y_arg = argsort(y, length);
     tree.z_arg = argsort(z, length);
 
-    build( &tree, ROOT, 0, length-1, X );
+    build( &tree, ROOT, 0, length-1 );
 
     /* argsort key arrays are only necessary for building the tree */
     free(tree.x_arg);
