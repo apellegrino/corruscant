@@ -9,7 +9,6 @@
 #include <string.h>
 
 #ifndef KDTREE_H
-    #define KDTREE_H
     #include "kdtree.h"
 #endif
 
@@ -230,6 +229,7 @@ void destroy(kdtree_t t)
 
 int max_variance_dim(kdtree_t * tree, datum_t * data, int begin, int end)
 {
+    // TODO: initialize for arbitrary NDIM
     double avg[NDIM] = {0.0, 0.0, 0.0};
     double var[NDIM] = {0.0, 0.0, 0.0};
     double temp[NDIM] = {0.0, 0.0, 0.0};

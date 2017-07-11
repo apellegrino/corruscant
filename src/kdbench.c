@@ -6,8 +6,7 @@
 #include "kdtest.h"
 
 #ifndef KDTREE_H
-#define KDTREE_H
-#include "kdtree.h"
+    #include "kdtree.h"
 #endif
 
 #define SIZE 400000

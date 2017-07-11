@@ -7,13 +7,6 @@
 
 #define KDTREE_H
 
-#define HAS_LCHILD (1<<0)
-#define HAS_RCHILD (1<<1)
-
-#define ID_MASK_MAXINT ((1<<9) - 1)
-// bits 2 through 10 (indexing from 0)
-#define ID_MASK (ID_MASK_MAXINT << 2)
-
 #define NDIM 3
 
 typedef struct datum {
