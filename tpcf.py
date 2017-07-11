@@ -12,9 +12,9 @@ class kdtree(Structure):
         ("size",c_int),
         ("memsize",c_int),
         ("num_fields",c_int),
-        ("data",POINTER(POINTER(c_double))),
+        ("data",POINTER(c_double)),
         ("fields",POINTER(c_int)),
-        ("args",POINTER(POINTER(c_int))),
+        ("args",POINTER(c_int)),
                 ]
 
 path_here = abspath(__file__)
@@ -23,7 +23,7 @@ kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
-                                POINTER(POINTER(c_double)), # array of double arrays
+                                POINTER(c_double), # array of double arrays
                                 POINTER(c_int), # field array
                                 c_int, # length
                                 c_int, # num_fields
@@ -38,7 +38,7 @@ kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_jackknife.argtypes = [
                             kdtree, # tree to query
-                            POINTER(POINTER(c_double)), # data to query with
+                            POINTER(c_double), # data to query with
                             POINTER(c_int), # fields to query with
                             c_int, # data array size
                             c_int, # num_fields
@@ -51,7 +51,7 @@ kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_ftf.argtypes = [
                             kdtree, # tree to query
-                            POINTER(POINTER(c_double)), # data to query with
+                            POINTER(c_double), # data to query with
                             POINTER(c_int), # fields to query with
                             c_int, # data array size
                             c_int, # num_fields
@@ -64,7 +64,7 @@ kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_noerr.argtypes = [
                             kdtree, # tree to query
-                            POINTER(POINTER(c_double)), # data to query with
+                            POINTER(c_double), # data to query with
                             c_int, # data array size
                             c_double, # radius
                             c_int, # num_threads
@@ -263,7 +263,7 @@ class tree:
             self.field_sizes = self._calc_field_sizes()
 
         self.points = points
-        self.size = points.shape[1]
+        self.size = points.shape[0]
 
         self._make_tree()
 
@@ -273,7 +273,7 @@ class tree:
 
     def _make_tree(self):
         #x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in self.points]
-        data = self.points.ctypes.data_as(POINTER(POINTER(c_double)))
+        data = self.points.ctypes.data_as(POINTER(c_double))
 
         if self.fields is not None:
             f = self.fields.ctypes.data_as(POINTER(c_int))

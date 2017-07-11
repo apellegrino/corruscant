@@ -376,21 +376,22 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(datum_t * data, int * fields, int length, int num_fields)
+kdtree_t tree_construct(double * data, int * fields, int length, int num_fields)
 {
     kdtree_t tree;
     tree.size = length;
     tree.memsize = pow2ceil(length);
     tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
 
-    tree.data = data;
+    // Undefined behavior, possibly change
+    tree.data = (datum_t *) data;
     tree.fields = fields;
     tree.num_fields = num_fields;
 
     /* Argsort the inputs */
     int dim;
     for(dim=0; dim<NDIM; dim++) {
-        tree.args[dim] = supersort(data, length, dim);
+        tree.args[dim] = supersort((datum_t *) data, length, dim);
     }
 
     build( &tree, ROOT, 0, length-1 );

@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Generated random data...\n");
-    kdtree_t data_tree = tree_construct(data, f, n, num_fields);
+    kdtree_t data_tree = tree_construct((double *) data, f, n, num_fields);
     printf("Constructed k-d tree...\n");
 
     verify_tree(data_tree);
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     //long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
-    long long * output = pair_count_jackknife(data_tree, data, f, SIZE, num_fields, radius, num_threads);
+    long long * output = pair_count_jackknife(data_tree, (double *) data, f, SIZE, num_fields, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
     for(i=0; i<num_fields+1; i++) {
         printf("%lld ", output[i]);

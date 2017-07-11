@@ -215,7 +215,7 @@ static long long * pair_count(kdtree_t tree, datum_t * data,
     return results;
 }
 
-long long * pair_count_jackknife(kdtree_t tree, datum_t * data, int * fields,
+long long * pair_count_jackknife(kdtree_t tree, double * data, int * fields,
                                  int length, int num_fields, double r,
                                  int num_threads)
 {
@@ -223,22 +223,22 @@ long long * pair_count_jackknife(kdtree_t tree, datum_t * data, int * fields,
     _include = 0;
     _use_err = 1;
 
-    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
+    return pair_count(tree, (datum_t *) data, fields, length, num_fields, r, num_threads);
 }
 
-long long * pair_count_ftf(kdtree_t tree, datum_t * data, int * fields,
+long long * pair_count_ftf(kdtree_t tree, double * data, int * fields,
                            int length, int num_fields, double r,
                            int num_threads)
 {
     // include only the field of the querying point
     _include = 1;
     _use_err = 1;
-    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
+    return pair_count(tree, (datum_t *) data, fields, length, num_fields, r, num_threads);
 }
 
-long long * pair_count_noerr(kdtree_t tree, datum_t * data, int length,
+long long * pair_count_noerr(kdtree_t tree, double * data, int length,
                              double r, int num_threads)
 {
     _use_err = 0;
-    return pair_count(tree, data, NULL, length, 0, r, num_threads);
+    return pair_count(tree, (datum_t *) data, NULL, length, 0, r, num_threads);
 }
