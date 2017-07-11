@@ -58,6 +58,16 @@ static inline double norm2(datum_t * a, datum_t * b)
     return sum;
 }
 
+static inline int left_child(int p)
+{
+    return 2*p;
+}
+
+static inline int right_child(int p)
+{
+    return 2*p+1;
+}
+
 /*
  * Query how many points in the tree with head p lie within radius r of point q
  */

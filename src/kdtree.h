@@ -37,9 +37,6 @@ typedef struct kdtree {
     int * args[NDIM];
 } kdtree_t;
 
-int left_child(int);
-int right_child(int);
-
 kdtree_t tree_construct(double *, int *, int, int);
 
 long long * pair_count_jackknife(kdtree_t, double *, int *, int, int, double, int);

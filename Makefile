@@ -1,6 +1,4 @@
-CC= gcc
-CFLAGS= -O3 -funroll-loops -march=native -mtune=native -Wall
-#CFLAGS= -g -Wall
+CFLAGS= -Wall -O3 -funroll-loops -march=native -mtune=native
 SRC= src
 BIN= bin
 OBJ= obj
@@ -24,9 +22,6 @@ ${BIN}/kdbench: ${OBJ}/kdbench.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest
 
 ${BIN}/kdbench_ang: ${OBJ}/kdbench_ang.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest.o
 	${CC} $^ -lpthread -lrt -lm -o $@
-
-#${BIN}/vpbench: ${OBJ}/vpbench.o ${OBJ}/vpbuild.o
-#	${CC} $^ -lrt -lm -o $@
 
 ${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o
 	${CC} $^ -o $@

@@ -8,6 +8,17 @@ int nodesize(void) {
     return sizeof(node_t);
 }
 
+
+static inline int left_child(int p)
+{
+    return 2*p;
+}
+
+static inline int right_child(int p)
+{
+    return 2*p+1;
+}
+
 static inline unsigned long long convert(double x)
 {
     /* could do return *((long long *) &x) here, but the following does not

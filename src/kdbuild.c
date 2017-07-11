@@ -212,12 +212,12 @@ static void partition(kdtree_t * tree, int left, int right, int d_key)
  *  inside `vals`.
  */
 
-inline int left_child(int p)
+static inline int left_child(int p)
 {
     return 2*p;
 }
 
-inline int right_child(int p)
+static inline int right_child(int p)
 {
     return 2*p+1;
 }
