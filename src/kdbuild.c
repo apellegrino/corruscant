@@ -9,15 +9,15 @@
 #include <string.h>
 
 #ifndef KDTREE_H
-#define KDTREE_H
-#include "kdtree.h"
+    #define KDTREE_H
+    #include "kdtree.h"
 #endif
 
 #define ROOT 1
 
-static inline void swapDouble(double * a, double * b)
+static inline void swapDatum(datum_t * a, datum_t * b)
 {
-    double temp;
+    datum_t temp;
     temp = *a;
     *a = *b;
     *b = temp;
@@ -46,30 +46,55 @@ static inline int median(int left, int right)
     return (left+right+1)/2;
 }
 
+// Return 1 if superkey of a < that of b, return 0 if superkey of a > that of b
+// i.e. whether the elements are in order
+int superkey_compare(datum_t * data, int msd, int a, int b)
+{
+    int i, dim;
+    double aval, bval;
+
+    for(i=msd; i<msd+NDIM; i++) {
+        dim = i < NDIM ? i : i - NDIM;
+        aval = (data[a]).value[dim];
+        bval = (data[b]).value[dim];
+        if(aval == bval) continue;
+
+        return aval < bval;
+    }
+
+    printf("ERROR: Duplicate points found %d %d\n", a, b);
+    for(dim=0; dim<NDIM; dim++) {
+        aval = (data[a]).value[dim];
+        bval = (data[b]).value[dim];
+        printf("DIM %d : %f %f\n", dim, aval, bval);
+    }
+    exit(1);
+} 
+
 
 /* 
- *  perform a merge sort on the array a[left] to a[right] on doubles,
- *  which performs identical operations on another array b[left] to b[right]
- *  on ints
+ *  perform a merge sort on the array data[left] to data[right],
+ *  which performs identical operations on another array ind[left] to ind[right]
+ *  on integer indices to the data array
  */
-static void merge_argsort(double *a, int *b, int left, int right)
+static void merge_supersort(datum_t * data, int * ind, int left, int right, int dim)
 {
     if (right == left) return;
     if (right - left == 1) {
-        if(a[right] < a[left]) {
-            swapDouble(a+left,a+right);
-            swapInt(b+left,b+right);
+        if(!superkey_compare(data, dim, left, right)) {
+            swapDatum(data+left,data+right);
+            swapInt(ind+left,ind+right);
             return;
         }
     }
 
     int m = median(left,right);
 
-    merge_argsort(a, b, left, m-1);
-    merge_argsort(a, b, m, right);
+    merge_supersort(data, ind, left, m-1, dim);
+    merge_supersort(data, ind, m, right, dim);
 
-    double * new_a = (double *) malloc( (right-left+1) * sizeof(double) );
-    int * new_b = (int *) malloc( (right-left+1) * sizeof(int) );
+    datum_t * new_data = (datum_t *) malloc( (right-left+1) * sizeof(datum_t) );
+    int * new_ind = (int *) malloc( (right-left+1) * sizeof(int) );
 
     // cursors to current elements in each array
     int lc = left;
@@ -77,43 +102,36 @@ static void merge_argsort(double *a, int *b, int left, int right)
     int nc = 0;
 
     while(lc < m && rc <= right) {
-        if( a[lc] < a[rc] ) {
-            new_a[nc] = a[lc];
-            new_b[nc] = b[lc];
+        if(superkey_compare(data, dim, lc, rc)) { // if data[lc] < data[rc]
+            new_data[nc] = data[lc];
+            new_ind[nc] = ind[lc];
             lc++; nc++;
-        } else if ( a[lc] > a[rc] ) {
-            new_a[nc] = a[rc];
-            new_b[nc] = b[rc];
-            rc++; nc++;
-        } else {
-            new_a[nc] = a[lc];
-            new_b[nc] = b[lc];
-            lc++; nc++;
-            new_a[nc] = a[rc];
-            new_b[nc] = b[rc];
+        } else { // comparision should never be equal
+            new_data[nc] = data[rc];
+            new_ind[nc] = ind[rc];
             rc++; nc++;
         }
     }
 
     while(lc < m) {
-        new_a[nc] = a[lc];
-        new_b[nc] = b[lc];
+        new_data[nc] = data[lc];
+        new_ind[nc] = ind[lc];
         lc++; nc++;
     }
     while(rc <= right) {
-        new_a[nc] = a[rc];
-        new_b[nc] = b[rc];
+        new_data[nc] = data[rc];
+        new_ind[nc] = ind[rc];
         rc++; nc++;
     }
 
     int i;
     for(i=0; i<right-left+1; i++) {
-        a[left+i] = new_a[i];
-        b[left+i] = new_b[i];
+        data[left+i] = new_data[i];
+        ind[left+i] = new_ind[i];
     }
 
-    free(new_a);
-    free(new_b);
+    free(new_data);
+    free(new_ind);
 
     return;
 }
@@ -122,58 +140,70 @@ static void merge_argsort(double *a, int *b, int left, int right)
  *  Return a pointer to an array of ints which index the input array in
  *  ascending order of values
  */
-static int * argsort(double *a, int size)
+static int * supersort(datum_t * data, int size, int dim)
 {
+    datum_t * cpy = (datum_t *) malloc(sizeof(datum_t) * size);
+    memcpy(cpy, data, sizeof(datum_t) * size);
 
-    /* copy `a` to keep `a` unchanged */
-    double *acpy = (double *) malloc(sizeof(double)*size);
-    memcpy(acpy, a, sizeof(double)*size);
-
-    int * ind = (int*) malloc(sizeof(int)*size);
+    int * indices = (int *) malloc(sizeof(int) * size);
     int i;
 
-    /* initialize array of indices */
-    for(i=0; i<size; i++)
-        ind[i] = i;
+    /* Initialize array of indices */
+    for(i=0; i<size; i++) indices[i] = i;
 
-    /*
-     * sort the copy of `a` while performing duplicate operations on `ind`
-     */
-    merge_argsort(acpy, ind, 0, size-1);
-    free(acpy);
-    return ind;
-}
+    merge_supersort(cpy, indices, 0, size-1, dim);
 
-//static inline double * get_data_array(kdtree_t tree, enum dim d)
-static inline double * get_data_array(kdtree_t tree, enum dim d)
-{
-    switch(d) {
-    case X:
-        return tree.x;
-    case Y:
-        return tree.y;
-    case Z:
-        return tree.z;
-    default:
-        return NULL;
+    for(i=0; i<size; i++) {
+        if(indices[i] < 0 || indices[i] >= size) {
+            printf("ERROR: arg array not initialized properly\n");
+            exit(1);
+        }
     }
 
+    free(cpy);
+    return indices;
 }
 
-//static inline int * get_arg_array(kdtree_t tree, enum dim d)
-static inline int * get_arg_array(kdtree_t tree, enum dim d)
+static void partition(kdtree_t * tree, int left, int right, int d_key)
 {
-    switch(d) {
-    case X:
-        return tree.x_arg;
-    case Y:
-        return tree.y_arg;
-    case Z:
-        return tree.z_arg;
-    default:
-        return NULL;
-    }
+    int med_index = median(left,right);
+    int med_arg = (tree->args[d_key])[med_index];
 
+    int i, j, k, dim, size, arg;
+    size = right-left+1;
+
+    int * args;
+    int * args_new = (int *) malloc(sizeof(int) * size);
+
+    for(dim=0; dim<NDIM; dim++) {
+        if(dim == d_key) continue;
+
+        // relative index of left
+        j = 0;
+        // relative index of median + 1
+        k = med_index-left+1;
+
+        args = tree->args[dim];
+
+        for(i=left; i<=right; i++) {
+            arg = args[i];
+
+            if(arg == med_arg) continue;
+
+            // if data[arg] < data[med_arg]
+            if( superkey_compare(tree->data, d_key, arg, med_arg) ) {
+                args_new[j] = arg;
+                j++;
+            } else {
+                args_new[k] = arg;
+                k++;
+            }
+
+        }
+
+        memcpy(args+left, args_new, size*sizeof(int));
+    }
+    free(args_new);
 }
 
 /*
@@ -182,56 +212,6 @@ static inline int * get_arg_array(kdtree_t tree, enum dim d)
  *  Leave a null value in the middle in place of the index that locates `key`
  *  inside `vals`.
  */
-static void partition(kdtree_t * tree, int left, int right, enum dim d_key,
-                      enum dim d_part)
-{
-    double * vals;
-    int * args;
-    vals = get_data_array(*tree, d_key);
-    args = get_arg_array(*tree, d_part);
-
-    int med_index = median(left,right);
-    int med_arg = (get_arg_array(*tree,d_key))[med_index];
-    double key = vals[med_arg];
-
-    int i, size;
-    int split = med_index - left;
-    size = right-left+1;
-
-    int *args_new = (int*) malloc(sizeof(int)*size);
-
-    // this value should not be used again
-    args_new[split] = -1;
-
-    // partition `args` on the range `left` to `right` compared to the key
-    int arg;
-    int j = 0;
-    int k = split+1;
-
-    for(i=left; i<=right; i++) {
-
-        arg = args[i];
-
-        if (arg == med_arg) continue;
-        if (vals[arg] < key) {
-            args_new[j] = arg;
-            j++;
-        } else if (vals[arg] > key) {
-            args_new[k] = arg;
-            k++;
-        } else {
-            // edge case of float equality. Partition cannot handle
-            // duplicate values
-            fprintf(stderr, "Two equal floating point numbers found!\n");
-            exit(1);
-        }
-
-    }
-
-    memcpy(args+left,args_new,size*sizeof(int));
-    free(args_new);
-
-}
 
 inline int left_child(int p)
 {
@@ -246,6 +226,51 @@ inline int right_child(int p)
 void destroy(kdtree_t t)
 {
     free(t.node_data);
+}
+
+int max_variance_dim(kdtree_t * tree, datum_t * data, int begin, int end)
+{
+    double avg[NDIM] = {0.0, 0.0, 0.0};
+    double var[NDIM] = {0.0, 0.0, 0.0};
+    double temp[NDIM] = {0.0, 0.0, 0.0};
+
+    int i, j, arg;
+    int * args;
+
+    // Maybe reverse loop order later
+    for(j=0; j<NDIM; j++) {
+        args = tree->args[j];
+
+        for(i=begin; i<=end; i++) {
+            arg = args[i];
+            avg[j] += (data[arg]).value[j];
+        }
+    }
+
+    for(j=0; j<NDIM; j++) {
+        avg[j] /= (end-begin+1);
+    }
+
+    for(j=0; j<NDIM; j++) {
+        args = tree->args[j];
+        for(i=begin; i<=end; i++) {
+            arg = args[i];
+            temp[j] = (data[arg].value[j] - avg[j]);
+            var[j] += temp[j]*temp[j];
+        }
+    }
+    
+    int dim = 0;
+    double maxvar = var[0];
+
+    for(j=1; j<NDIM; j++) {
+        if(var[j] > maxvar) {
+            maxvar = var[j];
+            dim = j;
+        }
+    }
+
+    return dim;
 }
 
 double arg_variance(int * args, double * data, int begin, int end)
@@ -270,39 +295,28 @@ double arg_variance(int * args, double * data, int begin, int end)
 
 void build(kdtree_t * tree, int ind, int left, int right)
 {
-    double *x, *y, *z;
     int *ids;
     int med, med_arg;
 
     node_t * parent = tree->node_data + ind;
 
-    x = tree->x; y = tree->y; z = tree->z;
-
     /* Median index of the sub-array. Rounds up for even sized lists */
     med = median(left,right);
 
+    /* Choose dim with max. variance */
     int tdim;
-    double x_var, y_var, z_var;
-    int temp;
-
     tdim = 0;
     if(right-left > 2) {
-        x_var = arg_variance(tree->x_arg, x, left, right);
-        y_var = arg_variance(tree->y_arg, y, left, right);
-        z_var = arg_variance(tree->z_arg, z, left, right);
-
-        // choose dim corresponding to max(x_var, y_var, z_var)
-        temp = x_var > y_var ? X : Y;
-        tdim = z_var > ( x_var > y_var ? x_var : y_var ) ? Z : temp;
+        tdim = max_variance_dim(tree, tree->data, left, right);
     }
 
     parent->dim = tdim;
 
     /* Find index of the median in appropriate position list */
-    med_arg = (get_arg_array(*tree, tdim))[med];
+    med_arg = (tree->args[tdim])[med];
 
-    /* the median point in dim d has index med_arg */
-    parent->x = x[med_arg]; parent->y = y[med_arg]; parent->z = z[med_arg];
+    /* the median point in dim tdim has index med_arg */
+    parent->data = tree->data[med_arg];
 
     ids = tree->fields;
     if (ids != NULL) parent->id = ids[med_arg];
@@ -336,20 +350,7 @@ void build(kdtree_t * tree, int ind, int left, int right)
      */
 
     /*  partition index array of other dims w.r.t. current dim */
-    switch(tdim) {
-    case X:
-        partition(tree, left, right, X, Y);
-        partition(tree, left, right, X, Z);
-        break;
-    case Y:
-        partition(tree, left, right, Y, X);
-        partition(tree, left, right, Y, Z);
-        break;
-    case Z:
-        partition(tree, left, right, Z, X);
-        partition(tree, left, right, Z, Y);
-        break;
-    }
+    partition(tree, left, right, tdim);
 
     parent->has_lchild = 1;
     parent->has_rchild = 1;
@@ -375,30 +376,29 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(double * x, double * y, double * z, int * fields, int length, int num_fields)
+kdtree_t tree_construct(datum_t * data, int * fields, int length, int num_fields)
 {
     kdtree_t tree;
     tree.size = length;
     tree.memsize = pow2ceil(length);
     tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
 
-    tree.x = x;
-    tree.y = y;
-    tree.z = z;
+    tree.data = data;
     tree.fields = fields;
     tree.num_fields = num_fields;
 
     /* Argsort the inputs */
-    tree.x_arg = argsort(x, length);
-    tree.y_arg = argsort(y, length);
-    tree.z_arg = argsort(z, length);
+    int dim;
+    for(dim=0; dim<NDIM; dim++) {
+        tree.args[dim] = supersort(data, length, dim);
+    }
 
     build( &tree, ROOT, 0, length-1 );
 
-    /* argsort key arrays are only necessary for building the tree */
-    free(tree.x_arg);
-    free(tree.y_arg);
-    free(tree.z_arg);
+    /* arg arrays are only necessary for building the tree */
+    for(dim=0; dim<NDIM; dim++) {
+        free(tree.args[dim]);
+    }
 
     return tree;
 }

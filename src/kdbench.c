@@ -19,17 +19,15 @@ int main(int argc, char *argv[]) {
     int i;
     int n = SIZE;
 
-    double *x = (double *)malloc(n*sizeof(double));
-    double *y = (double *)malloc(n*sizeof(double));
-    double *z = (double *)malloc(n*sizeof(double));
+    datum_t * data = (datum_t *)malloc(n*sizeof(datum_t));
     int *f = (int *)malloc(n*sizeof(int));
 
     srand(2);
 
     for(i=0; i<n; i++) {
-        x[i] = ((double) rand())/RAND_MAX;
-        y[i] = ((double) rand())/RAND_MAX;
-        z[i] = ((double) rand())/RAND_MAX;
+        data[i].value[0] = ((double) rand())/RAND_MAX;
+        data[i].value[1] = ((double) rand())/RAND_MAX;
+        data[i].value[2] = ((double) rand())/RAND_MAX;
     }
 
     int num_fields = 4;
@@ -39,7 +37,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Generated random data...\n");
-    kdtree_t data_tree = tree_construct(x, y, z, f, SIZE, num_fields);
+    kdtree_t data_tree = tree_construct(data, f, n, num_fields);
     printf("Constructed k-d tree...\n");
 
     verify_tree(data_tree);
@@ -51,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     //long long * output = pair_count_jackknife(data_tree, data, radius, num_threads);
-    long long * output = pair_count_jackknife(data_tree, x, y, z, f, SIZE, num_fields, radius, num_threads);
+    long long * output = pair_count_jackknife(data_tree, data, f, SIZE, num_fields, radius, num_threads);
     clock_gettime(CLOCK_MONOTONIC, &finish);
     for(i=0; i<num_fields+1; i++) {
         printf("%lld ", output[i]);

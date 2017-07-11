@@ -1,5 +1,9 @@
-#include "kdtree.h"
 #include <stdio.h>
+
+#ifndef KDTREE_H
+    #define KDTREE_H
+    #include "kdtree.h"
+#endif
 
 int nodesize(void) {
     return sizeof(node_t);
@@ -18,7 +22,12 @@ static inline unsigned long long convert(double x)
 
 unsigned long long node_hash(node_t * n)
 {
-    return convert(n->x) + convert(n->y) + convert(n->z);
+    int i;
+    unsigned long long sum = 0;
+    for(i=0; i<NDIM; i++) {
+        sum += convert(n->data.value[i]);
+    }
+    return sum;
 }
 
 unsigned long long _hash(node_t * data, int i)
@@ -43,47 +52,22 @@ unsigned long long hash(kdtree_t t)
 
 static void _verify(node_t * data, int index) {
     node_t *parent, *lc, *rc;
-    char *errmsg = "node %d should not be %s child of %d\n";
-    int comp = 0;
+    char *errmsg = "node %d should not be %s child of %d in dimension %d\n";
 
     parent = data + index;
-    int d = parent->dim;
+    int dim = parent->dim;
 
 	if (parent->has_lchild) {
         lc = data + left_child(index);
-		switch(d) {
-        case X:
-            comp = parent->x < lc->x;
-            break;
-        case Y:
-            comp = parent->y < lc->y;
-            break;
-        case Z:
-            comp = parent->z < lc->z;
-            break;
-		}
-        if(comp) {
-            fprintf(stderr,errmsg,left_child(index),"left",index);
-            printf("%d\n", d);
+        if( (parent->data).value[dim] < (lc->data).value[dim] ) {
+            fprintf(stderr,errmsg,left_child(index),"left",index,dim);
         }
 		_verify(data,left_child(index));
 	}
 	if (parent->has_rchild) {
         rc = data + right_child(index);
-		switch(d) {
-        case X:
-            comp = parent->x > rc->x;
-            break;
-        case Y:
-            comp = parent->y > rc->y;
-            break;
-        case Z:
-            comp = parent->z > rc->z;
-            break;
-		}
-        if(comp) {
-            fprintf(stderr,errmsg,right_child(index),"right",index);
-            printf("%d\n", d);
+        if( (parent->data).value[dim] > (rc->data).value[dim] ) {
+            fprintf(stderr,errmsg,right_child(index),"right",index,dim);
         }
 		_verify(data,right_child(index));
 	}

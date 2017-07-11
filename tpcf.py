@@ -12,13 +12,9 @@ class kdtree(Structure):
         ("size",c_int),
         ("memsize",c_int),
         ("num_fields",c_int),
-        ("x",POINTER(c_double)),
-        ("y",POINTER(c_double)),
-        ("z",POINTER(c_double)),
+        ("data",POINTER(POINTER(c_double))),
         ("fields",POINTER(c_int)),
-        ("x_arg",POINTER(c_int)),
-        ("y_arg",POINTER(c_int)),
-        ("z_arg",POINTER(c_int)),
+        ("args",POINTER(POINTER(c_int))),
                 ]
 
 path_here = abspath(__file__)
@@ -27,9 +23,7 @@ kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
-                                POINTER(c_double), # x array
-                                POINTER(c_double), # y array
-                                POINTER(c_double), # z array
+                                POINTER(POINTER(c_double)), # array of double arrays
                                 POINTER(c_int), # field array
                                 c_int, # length
                                 c_int, # num_fields
@@ -44,10 +38,8 @@ kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_jackknife.argtypes = [
                             kdtree, # tree to query
-                            POINTER(c_double), # data to query with
-                            POINTER(c_double),
-                            POINTER(c_double),
-                            POINTER(c_int),
+                            POINTER(POINTER(c_double)), # data to query with
+                            POINTER(c_int), # fields to query with
                             c_int, # data array size
                             c_int, # num_fields
                             c_double, # radius
@@ -59,10 +51,8 @@ kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_ftf.argtypes = [
                             kdtree, # tree to query
-                            POINTER(c_double), # data to query with
-                            POINTER(c_double),
-                            POINTER(c_double),
-                            POINTER(c_int),
+                            POINTER(POINTER(c_double)), # data to query with
+                            POINTER(c_int), # fields to query with
                             c_int, # data array size
                             c_int, # num_fields
                             c_double, # radius
@@ -74,9 +64,7 @@ kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
 
 kdlib.pair_count_noerr.argtypes = [
                             kdtree, # tree to query
-                            POINTER(c_double), # data to query with
-                            POINTER(c_double),
-                            POINTER(c_double),
+                            POINTER(POINTER(c_double)), # data to query with
                             c_int, # data array size
                             c_double, # radius
                             c_int, # num_threads
@@ -84,60 +72,37 @@ kdlib.pair_count_noerr.argtypes = [
 
 def _query_tree(tree, points, radius, num_threads, errtype, fields=None,
                 N_fields=0):
-    x, y, z = points
 
     N_fields = tree.N_fields
     
     counts = None
     if errtype == 'jackknife':
         counts = kdlib.pair_count_jackknife(tree.ctree,
-                                        x.ctypes.data_as(POINTER(c_double)),
-                                        y.ctypes.data_as(POINTER(c_double)),
-                                        z.ctypes.data_as(POINTER(c_double)),
+                                        points.ctypes.data_as(POINTER(c_double)),
                                         fields.ctypes.data_as(POINTER(c_int)),
-                                        c_int(points.shape[1]),
+                                        c_int(points.shape[0]),
                                         c_int(N_fields),
                                         c_double(radius),
                                         c_int(num_threads)
                                             )
     elif errtype == 'field-to-field':
         counts = kdlib.pair_count_ftf(tree.ctree,
-                                    x.ctypes.data_as(POINTER(c_double)),
-                                    y.ctypes.data_as(POINTER(c_double)),
-                                    z.ctypes.data_as(POINTER(c_double)),
+                                    points.ctypes.data_as(POINTER(c_double)),
                                     fields.ctypes.data_as(POINTER(c_int)),
-                                    c_int(points.shape[1]),
+                                    c_int(points.shape[0]),
                                     c_int(N_fields),
                                     c_double(radius),
                                     c_int(num_threads)
                                     )
     else:
         counts = kdlib.pair_count_noerr(tree.ctree,
-                                    x.ctypes.data_as(POINTER(c_double)),
-                                    y.ctypes.data_as(POINTER(c_double)),
-                                    z.ctypes.data_as(POINTER(c_double)),
-                                    c_int(points.shape[1]),
+                                    points.ctypes.data_as(POINTER(c_double)),
+                                    c_int(points.shape[0]),
                                     c_double(radius),
                                     c_int(num_threads)
                                     )
 
     return counts[:N_fields+1]
-
-#def duplicate_mask(arr):
-#    int = []
-#    for dim in arr:
-#        asort = np.argsort(dim, kind='mergesort')
-#        i = 0
-#        while i < len(asort) - 1:
-#            k = asort[i]
-#            while dim[asort[i]] == dim[asort[i+1]]:
-#                asort = np.delete(asort, i+1)
-#                print "Deleting %f %f" % (dim[asort[i+1]], dim[asort[i]])
-#            i += 1
-#
-#        int.append(asort)
-#    mask = reduce(np.intersect1d, int)
-#    return mask
 
 def validate_points(points):
     if not type(points) is np.ndarray:
@@ -147,12 +112,12 @@ def validate_points(points):
         raise ValueError("Point array must be two-dimensional (i.e. a list of "
                          "points)")
 
-    # try to make array of shape (3, N) if shape is (N, 3)
-    if (points.shape[1] == 3):
+    # try to make array of shape (N, 3) if shape is (3, N)
+    if (points.shape[0] == 3):
         points = points.T
 
-    if not(points.shape[0] == 3):
-        raise ValueError("Array must be of shape (3, N) or (N, 3). The "
+    if not(points.shape[1] == 3):
+        raise ValueError("Array must be of shape (N, 3) or (3, N). The "
                          "provided array has shape %s" % str(points.shape))
 
     newpoints = np.require(points, requirements='COA')
@@ -307,16 +272,17 @@ class tree:
         return np.array([f[f == id].size for id in range(1,self.N_fields+1)])
 
     def _make_tree(self):
-        x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in self.points]
+        #x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in self.points]
+        data = self.points.ctypes.data_as(POINTER(POINTER(c_double)))
 
         if self.fields is not None:
             f = self.fields.ctypes.data_as(POINTER(c_int))
-            self.ctree = kdlib.tree_construct(x, y, z, f, 
-                                              c_int(self.points.shape[1]),
+            self.ctree = kdlib.tree_construct(data, f, 
+                                              c_int(self.points.shape[0]),
                                               c_int(self.N_fields) )
         else:
-            self.ctree = kdlib.tree_construct(x, y, z, None, 
-                                              c_int(self.points.shape[1]), 0 )
+            self.ctree = kdlib.tree_construct(data, None, 
+                                              c_int(self.points.shape[0]), 0 )
 
     def __del__(self):
         kdlib.destroy(self.ctree)

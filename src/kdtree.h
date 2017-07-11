@@ -14,15 +14,19 @@
 // bits 2 through 10 (indexing from 0)
 #define ID_MASK (ID_MASK_MAXINT << 2)
 
-enum dim { X=0, Y=1, Z=2 };
+#define NDIM 3
 
+typedef struct datum {
+    double value[NDIM];
+} datum_t;
 
 typedef struct node {
-    double x, y, z;
+    //double data[NDIM];
+    datum_t data;
     unsigned int has_lchild:1;
     unsigned int has_rchild:1;
     unsigned int id:8;
-    unsigned int dim:2;
+    unsigned int dim:8;
 } node_t;
 
 typedef struct field_counter {
@@ -35,21 +39,16 @@ typedef struct kdtree {
     int size;
     int memsize;
     int num_fields;
-    double * x;
-    double * y;
-    double * z;
+    datum_t * data;
     int * fields;
-    int * x_arg;
-    int * y_arg;
-    int * z_arg;
+    int * args[NDIM];
 } kdtree_t;
 
 int left_child(int);
 int right_child(int);
-enum dim next_dim(enum dim);
 
-kdtree_t tree_construct(double *, double *, double *, int *, int, int);
+kdtree_t tree_construct(datum_t *, int *, int, int);
 
-long long * pair_count_jackknife(kdtree_t, double *, double *, double *, int *, int, int, double, int);
-long long * pair_count_ftf(kdtree_t, double *, double *, double *, int *, int, int, double, int);
-long long * pair_count_noerr(kdtree_t, double *, double *, double *, int, double, int);
+long long * pair_count_jackknife(kdtree_t, datum_t *, int *, int, int, double, int);
+long long * pair_count_ftf(kdtree_t, datum_t *, int *, int, int, double, int);
+long long * pair_count_noerr(kdtree_t, datum_t *, int, double, int);
