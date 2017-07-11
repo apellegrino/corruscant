@@ -1,8 +1,6 @@
 /*  Andrew Pellegrino, 2017
  */
 
-#define FLOAT double
-
 #define VPTREE_H
 
 #define HAS_LCHILD (1<<0)
@@ -12,10 +10,9 @@
 // bits 2 through 10 (indexing from 0)
 #define ID_MASK (ID_MASK_MAXINT << 2)
 
-enum dim { X=0, Y=1, Z=2 };
-
 typedef struct vpoint {
-    FLOAT lat, lon;
+    double lat, lon;
+    int field;
 } vpoint_t;
 
 typedef struct node {
@@ -31,17 +28,26 @@ typedef struct field_counter {
 
 typedef struct vptree {
     node_t * node_data;
-    vpoint_t * data;
     int size;
     int memsize;
 } vptree_t;
 
+typedef struct vpdata {
+    double * lat;
+    double * lon;
+    int * fields;
+    int length;
+    int num_fields;
+} vpdata_t;
+
 int left_child(int);
 int right_child(int);
 
-vptree_t make_vp_tree(vpoint_t *, int);
+vptree_t make_vp_tree(double *, double *, int *, int);
 
-long long pair_count(vptree_t, double * lat, double * lon, int, double, int);
+long long * pair_count_noerr(vptree_t, double *, double *, int, double, int);
+long long * pair_count_jackknife(vptree_t, double *, double *, int *, int, int, double, int);
+long long * pair_count_ftf(vptree_t, double *, double *, int *, int, int, double, int);
 
 /*
 long long * pair_count_jackknife(kdtree_t, array3d_t, double, int);
