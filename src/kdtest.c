@@ -1,8 +1,6 @@
 #include <stdio.h>
 
-#ifndef KDTREE_H
-    #include "kdtree.h"
-#endif
+#include "kdtree.h"
 
 int nodesize(void) {
     return sizeof(node_t);

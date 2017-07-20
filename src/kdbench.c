@@ -4,10 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 #include "kdtest.h"
-
-#ifndef KDTREE_H
-    #include "kdtree.h"
-#endif
+#include "kdtree.h"
 
 #define SIZE 400000
 

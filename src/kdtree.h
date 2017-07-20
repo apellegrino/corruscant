@@ -5,6 +5,7 @@
  *  Techniques (JCGT), vol. 4, no. 1, 50-68, 2015
  */
 
+#ifndef KDTREE_H
 #define KDTREE_H
 
 #define NDIM 3
@@ -42,3 +43,5 @@ kdtree_t tree_construct(double *, int *, int, int);
 long long * pair_count_jackknife(kdtree_t, double *, int *, int, int, double, int);
 long long * pair_count_ftf(kdtree_t, double *, int *, int, int, double, int);
 long long * pair_count_noerr(kdtree_t, double *, int, double, int);
+
+#endif /* KDTREE_H */

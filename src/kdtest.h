@@ -1,10 +1,12 @@
-#ifndef KDTREE_H
-#define KDTREE_H
+#ifndef KDTEST_H
+#define KDTEST_H
+
 #include "kdtree.h"
-#endif
 
 int nodesize(void);
 
 void verify_tree(kdtree_t);
 
 int count_tree(kdtree_t);
+
+#endif /* KDTEST_H */

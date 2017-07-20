@@ -2,10 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-
-#ifndef KDTREE_H
-    #include "kdtree.h"
-#endif
+#include "kdtree.h"
 
 static datum_t * _data_query;
 static int *_field_query;

@@ -8,9 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef KDTREE_H
-    #include "kdtree.h"
-#endif
+#include "kdtree.h"
 
 #define ROOT 1
 
