@@ -1,7 +1,6 @@
 from ctypes import CDLL, Structure, POINTER, c_double, c_int, c_longlong
 from os.path import abspath, dirname
 import numpy as np
-#import warnings
 
 class node(Structure):
     pass
@@ -19,7 +18,7 @@ class kdtree(Structure):
 
 path_here = abspath(__file__)
 path_dir = dirname(path_here)
-kdlib = CDLL("%s/bin/libkdtree.so" % path_dir)
+kdlib = CDLL("{:s}/bin/libkdtree.so".format(path_dir))
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -120,8 +119,10 @@ def validate_points(points):
     newpoints = np.require(points, requirements='COA')
 
     #if newpoints is not points:
-    #    warnings.warn("Data array of size %d is being copied to have shape %s"
-    #                 % (points.size, str(newpoints.shape)), RuntimeWarning)
+    #    warnings.warn("Data array is being copied to have shape {:s}".format(
+    #                                        points.size, str(newpoints.shape)
+    #                                                                        ),
+    #                    RuntimeWarning)
 
     return newpoints
 
@@ -136,8 +137,8 @@ def validate_fields(fields, points):
     newfields = np.require(fields, dtype='int32', requirements='COA')
 
     #if newfields is not fields:
-    #    warnings.warn("Field array of size %d is being copied to have type "
-    #                  "int32" % fields.size, RuntimeWarning)
+    #    warnings.warn("Field array is being copied to have type int32",
+    #                   RuntimeWarning)
 
     return newfields
 
@@ -197,14 +198,19 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     elif est_type == "standard":
         estimator = est_standard
     else:
-        raise ValueError("Estimator type for Xi s not valid" % est_type)
+        raise ValueError("Estimator type for Xi \"{:s}\" "
+                         "not valid".format(est_type))
 
     valid_err_types = ["jackknife", "field-to-field", "poisson", None]
+
     if err_type not in valid_err_types:
-        raise ValueError("Estimator error type %s not valid" % err_type)
+        raise ValueError("Estimator error type \"{:s}\" not "
+                         "valid".format(err_type))
+
     if data_tree.fields is None and err_type is not None:
         raise ValueError("Error cannot be calculated when data tree has no "
                          "fields")
+
     if rand_tree.fields is None and err_type is not None:
         raise ValueError("Error cannot be calculated when random tree has no "
                          "fields")
@@ -254,8 +260,8 @@ class tree:
                 raise ValueError("Minimum field ID must be 1")
             if max_field != self.N_fields:
                 raise ValueError("Maximum field ID must be the same as the "
-                                 "number of unique field IDs (%d)"
-                                 % self.N_fields)
+                                 "number of unique field "
+                                 "IDs ({:d})".format(self.N_fields))
             self.fields = fields
             self.field_sizes = self._calc_field_sizes()
 
@@ -269,7 +275,6 @@ class tree:
         return np.array([f[f == id].size for id in range(1,self.N_fields+1)])
 
     def _make_tree(self):
-        #x, y, z = [p.ctypes.data_as(POINTER(c_double)) for p in self.points]
         data = self.points.ctypes.data_as(POINTER(c_double))
 
         if self.fields is not None:
@@ -399,7 +404,9 @@ class twopoint_data:
                 "-" * 79, "\n"
                     ]
 
-        for rl, ru, dd, dr, rr, estv, errv in zip(r_lower, r_upper, dd_tot, dr_tot, rr_tot, est, err):
+        for rl, ru, dd, dr, rr, estv, errv in \
+                zip(r_lower, r_upper, dd_tot, dr_tot, rr_tot, est, err):
+
             rl_s =  "{:.2E}".format(rl)
             ru_s =  "{:.2E}".format(ru)
             estv_s =  "{:+.2E}".format(estv)
