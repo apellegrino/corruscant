@@ -105,20 +105,17 @@ def _query_tree(tree, points, radius, num_threads, errtype, fields=None,
     return counts[:N_fields+1]
 
 def validate_points(points):
-    if not type(points) is np.ndarray:
-        points = np.array(points)
-
-    if not (points.ndim == 2):
-        raise ValueError("Point array must be two-dimensional (i.e. a list of "
-                         "points)")
+    points = np.array(points)
+    N_points = max(points.shape)
 
     # try to make array of shape (N, 3) if shape is (3, N)
-    if (points.shape[0] == 3):
+    if not points.shape == (N_points, 3):
         points = points.T
 
-    if not(points.shape[1] == 3):
-        raise ValueError("Array must be of shape (N, 3) or (3, N). The "
-                         "provided array has shape %s" % str(points.shape))
+    if not points.shape == (N_points, 3):
+        raise ValueError("Array must be of shape (N, 3) or (3, N). "
+                         "The provided array has "
+                         "shape {:s}".format(str(points.shape)))
 
     newpoints = np.require(points, requirements='COA')
 
@@ -132,7 +129,7 @@ def validate_fields(fields, points):
     fields = np.array(fields)
     N_points = max(points.shape)
 
-    if fields.shape != (N_points,):
+    if not fields.shape == (N_points,):
         raise ValueError("Field IDs must be a 1-d array of length equal to "
                          "the number of points")
 
@@ -200,7 +197,7 @@ def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
     elif est_type == "standard":
         estimator = est_standard
     else:
-        raise ValueError("Estimator type for Xi %s not valid" % est_type)
+        raise ValueError("Estimator type for Xi s not valid" % est_type)
 
     valid_err_types = ["jackknife", "field-to-field", "poisson", None]
     if err_type not in valid_err_types:
@@ -324,11 +321,12 @@ class twopoint_data:
             return None, None
     
         elif self.error_type == "poisson":
-            with np.errstate(divide='ignore', invalid='ignore'):
-                error = np.divide(1 + estimation,np.sqrt(dd_tot))
-                error[np.isneginf(error)] = np.nan
-                error[np.isinf(error)] = np.nan
-            return error, None
+            #with np.errstate(divide='ignore', invalid='ignore'):
+            #    error = np.divide(1 + estimation,np.sqrt(dd_tot))
+            #    error[np.isneginf(error)] = np.nan
+            #    error[np.isinf(error)] = np.nan
+            #return error, None
+            return None, None
 
         elif self.error_type == "jackknife":
             # sizes with one field out
@@ -366,9 +364,18 @@ class twopoint_data:
     def error(self):
         if self.error_type is None:
             return None
+        elif self.error_type == "poisson":
+            dd_tot, dr_tot, rr_tot = self.total_pair_counts()
 
-        cov = self.covariance()
-        return np.sqrt(np.diagonal(cov))
+            with np.errstate(divide='ignore', invalid='ignore'):
+                error = np.divide(1 + estimation,np.sqrt(dd_tot))
+                error[np.isneginf(error)] = np.nan
+                error[np.isinf(error)] = np.nan
+
+            return error
+        else:
+            cov = self.covariance()
+            return np.sqrt(np.diagonal(cov))
 
     def normalized_covariance(self):
         # normalize covariance matrix to get the regression matrix
@@ -378,3 +385,46 @@ class twopoint_data:
         i_divisor, j_divisor = np.meshgrid(sigmas,sigmas)
         total_divisor = np.multiply(i_divisor,j_divisor)
         return np.divide(cov,total_divisor)
+
+    def __str__(self):
+        r_lower = [0.0] + list(self.radii[:-1])
+        r_upper = self.radii
+        dd_tot, dr_tot, rr_tot = self.total_pair_counts()
+        est = self.estimate()
+        err = self.error()
+
+        if err is None:
+            err = [None] * len(est)
+
+        str_rep = [
+                "Bin Min.  Bin Max.  ", "DD".ljust(10, ' '),
+                    "DR".ljust(12, ' '), "RR".ljust(14, ' '),
+                    "Estimator".ljust(11, ' '), "Error".ljust(10, ' '), "\n",
+
+                "-" * 79, "\n"
+                    ]
+
+        for rl, ru, dd, dr, rr, estv, errv in zip(r_lower, r_upper, dd_tot, dr_tot, rr_tot, est, err):
+            rl_s =  "{:.2E}".format(rl)
+            ru_s =  "{:.2E}".format(ru)
+            estv_s =  "{:+.2E}".format(estv)
+
+            if errv is None:
+                errv_s = str(None)
+            else:
+                errv_s =  "{:.2E}".format(errv)
+
+            s = [
+                    "{:<10}".format(rl_s),
+                    "{:<10}".format(ru_s),
+                    "{:<10}".format(dd),
+                    "{:<12}".format(dr),
+                    "{:<14}".format(rr),
+                    "{:<11}".format(estv_s),
+                    "{:<10}".format(errv_s),
+                    "\n",
+                ]
+
+            str_rep.append(''.join(s))
+
+        return ''.join(str_rep)
