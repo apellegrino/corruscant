@@ -387,8 +387,8 @@ class twopoint_data:
         return np.divide(cov,total_divisor)
 
     def __str__(self):
-        r_lower = [0.0] + list(self.radii[:-1])
-        r_upper = self.radii
+        r_lower = self.radii[:-1]
+        r_upper = self.radii[1:]
         dd_tot, dr_tot, rr_tot = self.total_pair_counts()
         est = self.estimate()
         err = self.error()
