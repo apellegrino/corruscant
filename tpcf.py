@@ -321,11 +321,6 @@ class twopoint_data:
             return None, None
     
         elif self.error_type == "poisson":
-            #with np.errstate(divide='ignore', invalid='ignore'):
-            #    error = np.divide(1 + estimation,np.sqrt(dd_tot))
-            #    error[np.isneginf(error)] = np.nan
-            #    error[np.isinf(error)] = np.nan
-            #return error, None
             return None, None
 
         elif self.error_type == "jackknife":
