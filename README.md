@@ -37,6 +37,9 @@ Example usage can be found in test/example.py:
 
 ```
 #!python
+import tpcf
+import numpy as np
+
 # data set sizes
 dsize = 4000
 rsize = dsize*20
@@ -50,8 +53,10 @@ X_random = np.random.rand(rsize, 3)
 radii = np.logspace(-2.5,-1.,6)
 
 # give each data point and random point a field ID
-data_fields = np.where(X_data.T[0] < 0.5, 1, 2)
-rand_fields = np.where(X_random.T[0] < 0.5, 1, 2)
+# for a simple example, call the x < 0.5 region `field 1` and the x > 0.5
+# region `field 2`
+data_fields = np.where(X_data[:,0] < 0.5, 1, 2)
+rand_fields = np.where(X_random[:,0] < 0.5, 1, 2)
 
 # generate K-d trees
 dtree = tpcf.tree(X_data, data_fields)
@@ -74,6 +79,4 @@ data = tpcf.validate_points(data)
 fields = tpcf.validate_fields(fields)
 ```
 
-This assures that the input arrays will not be copied when constructing a tree.import tpcf
-import numpy as np
-
+This assures that the input arrays will not be copied when constructing a tree.
