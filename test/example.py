@@ -24,6 +24,6 @@ rtree = tpcf.tree(X_random, rand_fields)
 # get the correlation function results
 results = tpcf.twopoint(dtree, rtree, radii,
                            est_type="landy-szalay",
-                           err_type='jackknife', num_threads=2)
+                           err_type='jackknife', num_threads=4)
 
 print(results)
