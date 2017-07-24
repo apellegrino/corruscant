@@ -37,9 +37,6 @@ Example usage can be found in test/example.py:
 
 ```
 #!python
-import tpcf
-import numpy as np
-
 # data set sizes
 dsize = 4000
 rsize = dsize*20
@@ -57,29 +54,15 @@ data_fields = np.where(X_data.T[0] < 0.5, 1, 2)
 rand_fields = np.where(X_random.T[0] < 0.5, 1, 2)
 
 # generate K-d trees
-dtree = tpcf.tree(X_data, data_fields, 2)
-rtree = tpcf.tree(X_random, rand_fields, 2)
+dtree = tpcf.tree(X_data, data_fields)
+rtree = tpcf.tree(X_random, rand_fields)
 
 # get the correlation function results
 results = tpcf.twopoint(dtree, rtree, radii,
                            est_type="landy-szalay",
-                           err_type='jackknife', num_threads=2)
+                           err_type='jackknife', num_threads=4)
 
-print "------- Using Landy-Szalay estimator, jackknife error -------"
-
-print "r = "
-print radii
-
-print "DD, DR, RR differential counts"
-dd, dr, rr = results.total_pair_counts()
-print np.vstack([dd,dr,rr]).T
-
-print "Estimated Xi(r)"
-print results.estimate()
-print "Error of Xi(r)"
-print results.error()
-print "Covariance matrix"
-print results.covariance()
+print(results)
 ```
 
 ### Memory Efficiency ###
@@ -91,4 +74,6 @@ data = tpcf.validate_points(data)
 fields = tpcf.validate_fields(fields)
 ```
 
-This assures that the input arrays will not be copied when constructing a tree.
+This assures that the input arrays will not be copied when constructing a tree.import tpcf
+import numpy as np
+
