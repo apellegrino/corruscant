@@ -1,72 +1,39 @@
-import tpcf
-import tpcf_angular
-import tpcf_helper as thelp
+import twopoint
 import numpy as np
-import timer
-t = timer.timer()
 
-nd = 1000
-nr = 20 * nd
+# data set sizes
+dsize = 10000
+rsize = dsize*20
 
-def sph_to_cart(lat, lon):
-    x = np.cos(lat)*np.cos(lon)
-    y = np.cos(lat)*np.sin(lon)
-    z = np.sin(lat)
+# generate uniform sphere points in RA, DEC
+np.random.seed(3)
 
-    return x,y,z
+data_ra = np.random.rand(dsize) * 360.
+data_dec = np.arcsin(np.random.rand(dsize) * 2. - 1.) * 180. / np.pi
 
-data = np.random.rand(2,nd)
-data[0] = np.arcsin(data[0] * 2. - 1.)
-data[1] = data[1] * 2 * np.pi
+rand_ra = np.random.rand(rsize) * 360.
+rand_dec = np.arcsin(np.random.rand(rsize) * 2. - 1.) * 180. / np.pi
 
-rand = np.random.rand(2,nr)
-rand[0] = np.arcsin(rand[0] * 2. - 1.)
-rand[1] = rand[1] * 2 * np.pi
+# choose radius bin edges
+radii_deg = np.logspace(-2.,0.,6)
 
-dfields = np.where(data[0] < 0., 1, 2)
-rfields = np.where(rand[0] < 0., 1, 2)
+# give each data point and random point a field ID
+# for a simple example, call the x < 0.5 region `field 1` and the x > 0.5
+# region `field 2`
+data_fields = np.where(data_ra < 180., 1, 2)
+rand_fields = np.where(rand_ra < 180., 1, 2)
 
-dtree = tpcf_angular.tree(data, dfields)
-t.start()
-rtree = tpcf_angular.tree(rand, rfields)
-print "VP build time:"
-t.printout()
+# transform to cartesian coords
+X_data = twopoint.angular.cartesian(data_ra, data_dec)
+X_rand = twopoint.angular.cartesian(rand_ra, rand_dec)
 
-#radii = np.logspace(-3,-1.5,5)
-radii=[0,1.0]
-eu = [2*np.sin(r/2) for r in radii]
-t.start()
-results = tpcf_angular.twopoint(dtree, rtree, radii=radii, num_threads=8)
-print "VP query time:"
-t.printout()
-print "------- Using Landy-Szalay estimator, jackknife error -------"
+# generate K-d trees
+dtree = twopoint.clustering.tree(X_data, data_fields)
+rtree = twopoint.clustering.tree(X_rand, rand_fields)
 
-print "theta = "
-print radii
+# get the correlation function results
+results = twopoint.angular.autocorr(dtree, rtree, radii_deg,
+                           est_type="landy-szalay",
+                           err_type='jackknife', num_threads=4)
 
-print "DD, DR, RR differential counts"
-dd, dr, rr = results.total_pair_counts()
-print np.vstack([dd,dr,rr]).T
-
-datacart = np.array(sph_to_cart(data[0], data[1]))
-randcart = np.array(sph_to_cart(rand[0], rand[1]))
-
-dtree = tpcf.tree(datacart, dfields)
-t.start()
-rtree = tpcf.tree(randcart, rfields)
-print "KD build time:"
-t.printout()
-
-t.start()
-results = tpcf.twopoint_angular(dtree, rtree, radii=radii, num_threads=8)
-print "KD query time:"
-t.printout()
-dd, dr, rr = results.total_pair_counts()
-print np.vstack([dd,dr,rr]).T
-
-#print "Estimated w(theta)"
-#print results.estimate()
-#print "Error of w(theta)"
-#print results.error()
-#print "Covariance matrix"
-#print results.covariance()
+print(results)

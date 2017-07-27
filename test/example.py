@@ -1,4 +1,4 @@
-import tpcf
+import twopoint
 import numpy as np
 
 # data set sizes
@@ -20,11 +20,11 @@ data_fields = np.where(X_data[:,0] < 0.5, 1, 2)
 rand_fields = np.where(X_random[:,0] < 0.5, 1, 2)
 
 # generate K-d trees
-dtree = tpcf.tree(X_data, data_fields)
-rtree = tpcf.tree(X_random, rand_fields)
+dtree = twopoint.clustering.tree(X_data, data_fields)
+rtree = twopoint.clustering.tree(X_random, rand_fields)
 
 # get the correlation function results
-results = tpcf.twopoint(dtree, rtree, radii,
+results = twopoint.threedim.autocorr(dtree, rtree, radii,
                            est_type="landy-szalay",
                            err_type='jackknife', num_threads=4)
 

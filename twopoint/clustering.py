@@ -1,6 +1,7 @@
 from ctypes import CDLL, Structure, POINTER, c_double, c_int, c_longlong
 from os.path import abspath, dirname
 import numpy as np
+import warnings
 
 class node(Structure):
     pass
@@ -18,7 +19,7 @@ class kdtree(Structure):
 
 path_here = abspath(__file__)
 path_dir = dirname(path_here)
-kdlib = CDLL("{:s}/bin/libkdtree.so".format(path_dir))
+kdlib = CDLL("{:s}/../bin/libkdtree.so".format(path_dir))
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -112,17 +113,20 @@ def validate_points(points):
         points = points.T
 
     if not points.shape == (N_points, 3):
-        raise ValueError("Array must be of shape (N, 3) or (3, N). "
-                         "The provided array has "
+        raise ValueError("Array must be of shape (N, 3) "
+                         "or (3, N). The provided array has "
                          "shape {:s}".format(str(points.shape)))
 
     newpoints = np.require(points, requirements='COA')
 
-    #if newpoints is not points:
-    #    warnings.warn("Data array is being copied to have shape {:s}".format(
-    #                                        points.size, str(newpoints.shape)
-    #                                                                        ),
-    #                    RuntimeWarning)
+    if newpoints is not points:
+        warnings.warn(
+                "Data array is being copied "
+                "to have shape {:s}".format(
+                                    points.size, str(newpoints.shape)
+                                          ),
+                        RuntimeWarning
+                      )
 
     return newpoints
 
@@ -136,9 +140,9 @@ def validate_fields(fields, points):
 
     newfields = np.require(fields, dtype='int32', requirements='COA')
 
-    #if newfields is not fields:
-    #    warnings.warn("Field array is being copied to have type int32",
-    #                   RuntimeWarning)
+    if newfields is not fields:
+        warnings.warn("Field array is being copied to have type int32",
+                       RuntimeWarning)
 
     return newfields
 
@@ -153,15 +157,8 @@ def est_hamilton(dd,dr,rr,dsize,rsize):
 def est_standard(dd,dr,rr,dsize,rsize):
     return float(rsize) / dsize * np.divide( dd.astype("float64"), dr ) - 1.
 
-def twopoint_angular(data_tree, rand_tree, radii, est_type="landy-szalay",
-                     err_type='jackknife', num_threads=4):
-
-    radii = 2. * np.sin( np.array(radii) / 2. )
-    return twopoint(data_tree, rand_tree, radii, est_type=est_type,
-                    err_type=err_type, num_threads=num_threads)
-    
-def twopoint(data_tree, rand_tree, radii, est_type="landy-szalay",
-             err_type='jackknife', num_threads=4):
+def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
+             err_type="jackknife", num_threads=4):
     """Given a set of 3D cartesian data points and random points, calculate the
     estimated two-point correlation function with error estimation.
 
@@ -248,20 +245,25 @@ class tree:
         else: 
             fields = validate_fields(fields, points)
 
-            self.N_fields = np.unique(fields).size
+            unique = np.unique(fields)
+            if not np.all(unique == range(1,np.max(fields)+1)):
+                raise ValueError("fields must be a 1-D array of integers from "
+                                 "1 to the number of unique fields")
+
+            self.N_fields = unique.size
 
             if self.N_fields < 2:
                 raise ValueError("At least two unique field IDs must be "
-                                 "provided")
+                                 "provided if using error fields")
 
-            min_field, max_field = np.min(fields), np.max(fields)
+            #min_field, max_field = np.min(fields), np.max(fields)
 
-            if min_field != 1:
-                raise ValueError("Minimum field ID must be 1")
-            if max_field != self.N_fields:
-                raise ValueError("Maximum field ID must be the same as the "
-                                 "number of unique field "
-                                 "IDs ({:d})".format(self.N_fields))
+            #if min_field != 1:
+            #    raise ValueError("Minimum field ID must be 1")
+            #if max_field != self.N_fields:
+            #    raise ValueError("Maximum field ID must be the same as the "
+            #                     "number of unique field "
+            #                     "IDs ({:d})".format(self.N_fields))
             self.fields = fields
             self.field_sizes = self._calc_field_sizes()
 
@@ -297,7 +299,9 @@ class twopoint_data:
         self.dtree = dtree
         self.rtree = rtree
         self.estimator = estimator
-        self.radii = radii
+        self.radii_euclidean = radii
+        self.radii_nominal = None # to be set by wrappers of `_autocorr()`
+        self.radii_units = None # to be set by wrappers of `_autocorr()`
         self.error_type = None
 
     def total_pair_counts(self):
@@ -340,7 +344,9 @@ class twopoint_data:
 
         est_func = self.estimator
 
-        cov = np.zeros((self.radii.size-1,self.radii.size-1))
+        cov = np.zeros((self.radii_euclidean.size-1,
+                        self.radii_euclidean.size-1)
+                       )
 
         for fid in range(1,self.dtree.N_fields+1):
             dd, dr, rr = self.field_pair_counts(fid)
@@ -387,8 +393,8 @@ class twopoint_data:
         return np.divide(cov,total_divisor)
 
     def __str__(self):
-        r_lower = self.radii[:-1]
-        r_upper = self.radii[1:]
+        r_lower = self.radii_nominal[:-1]
+        r_upper = self.radii_nominal[1:]
         dd_tot, dr_tot, rr_tot = self.total_pair_counts()
         est = self.estimate()
         err = self.error()
@@ -397,12 +403,19 @@ class twopoint_data:
             err = [None] * len(est)
 
         str_rep = [
-                "Bin Min.  Bin Max.  ", "DD".ljust(10, ' '),
-                    "DR".ljust(12, ' '), "RR".ljust(14, ' '),
+                "Bin Range    ", "DD".ljust(15, ' '),
+                    "DR".ljust(15, ' '), "RR".ljust(15, ' '),
                     "Estimator".ljust(11, ' '), "Error".ljust(10, ' '), "\n",
-
-                "-" * 79, "\n"
                     ]
+
+        # add optional units to radii column, e.g. degrees
+        if self.radii_units is not None:
+            str_rep.append("({:s})\n".format(self.radii_units))
+
+
+        str_rep.append("-" * 79 + "\n")
+
+        ########## end of table header ##########
 
         for rl, ru, dd, dr, rr, estv, errv in \
                 zip(r_lower, r_upper, dd_tot, dr_tot, rr_tot, est, err):
@@ -417,13 +430,14 @@ class twopoint_data:
                 errv_s =  "{:.2E}".format(errv)
 
             s = [
-                    "{:<10}".format(rl_s),
-                    "{:<10}".format(ru_s),
-                    "{:<10}".format(dd),
-                    "{:<12}".format(dr),
-                    "{:<14}".format(rr),
+                    "{:<13}".format(rl_s),
+                    "{:<15}".format(dd),
+                    "{:<15}".format(dr),
+                    "{:<15}".format(rr),
                     "{:<11}".format(estv_s),
                     "{:<10}".format(errv_s),
+                    "\n",
+                    "to {:<10}".format(ru_s),
                     "\n",
                 ]
 
