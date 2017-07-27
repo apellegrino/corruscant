@@ -6,13 +6,16 @@ OBJ= obj
 all: python benchmark
 
 .PHONY: python
-python: mkdirs ${BIN}/libkdtree.so
+python: mkdirs ${BIN}/libkdtree.so ${BIN}/libcoords.so
 
 .PHONY: benchmark
 benchmark: mkdirs ${BIN}/kdbench
 
 ${BIN}/libkdtree.so: ${SRC}/kdbuild.c ${SRC}/kdquery.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
+
+${BIN}/libcoords.so: ${SRC}/coordmath.c
+	${CC} ${CFLAGS} -shared -fPIC $^ -o $@
 
 ${BIN}/libvptree.so: ${SRC}/vpbuild.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
@@ -35,4 +38,5 @@ mkdirs:
 
 .PHONY: clean
 clean:
-	rm -f ./${OBJ}/*.o ./${BIN}/* *.pyc
+	rm -f ./${OBJ}/*.o ./${BIN}/*
+	find . -name '*.pyc' -delete
