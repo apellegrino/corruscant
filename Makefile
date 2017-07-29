@@ -6,10 +6,10 @@ OBJ= obj
 all: python
 
 .PHONY: python
-python: mkdirs ${BIN}/libkdtree.so ${BIN}/libcoords.so
+python: mkdirs_py ${BIN}/libkdtree.so ${BIN}/libcoords.so
 
 .PHONY: benchmark
-benchmark: mkdirs ${BIN}/kdbench
+benchmark: mkdirs_c ${BIN}/kdbench
 
 ${BIN}/libkdtree.so: ${SRC}/kdbuild.c ${SRC}/kdquery.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@
@@ -32,9 +32,13 @@ ${OBJ}/kdtest: ${OBJ}/kdtest.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o
 ${OBJ}/%.o: ${SRC}/%.c
 	${CC} -c ${CFLAGS} $< -o $@
 
-.PHONY: mkdirs
-mkdirs:
+.PHONY: mkdirs_c
+mkdirs_c:
 	mkdir -p obj bin
+
+.PHONY: mkdirs_py
+mkdirs_py:
+	mkdir -p bin
 
 .PHONY: clean
 clean:
