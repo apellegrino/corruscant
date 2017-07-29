@@ -17,13 +17,10 @@ coordlib.radecdist2cart64.argtypes = [
                                 c_int, # N
                                 ]
 
-def autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
-             err_type="jackknife", num_threads=4):
+def autocorr(data_tree, rand_tree, radii, **kwargs):
 
     results = clustering._autocorr(data_tree, rand_tree, radii,
-                            est_type=est_type, err_type=err_type,
-                            num_threads=num_threads)
-
+                                   **kwargs)
     results.radii_nominal = results.radii_euclidean
 
     return results

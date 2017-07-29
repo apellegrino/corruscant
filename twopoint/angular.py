@@ -16,24 +16,15 @@ coordlib.radec2cart64.argtypes = [
                                 c_int,
                                 ]
 
-#def autocorrelation(data_tree, rand_tree, radii, est_type="landy-szalay",
-#             err_type="jackknife", num_threads=4):
-#    # TODO
-#    # call clustering.auto with *args, **kwargs, maybe
-#    # indicate in results that the 3D function is being calculated
-#
-#    pass
+def autocorr(data_tree, rand_tree, radii_deg, **kwargs):
 
-def autocorr(data_tree, rand_tree, radii_deg, est_type="landy-szalay",
-             err_type="jackknife", num_threads=4):
-
-    radii_euclidean = 2. * np.sin( np.array(radii_deg) * (np.pi / 180.) / 2. )
+    radii_deg = np.array(radii_deg)
+    radii_euclidean = 2. * np.sin( radii_deg * (np.pi / 180.) / 2. )
 
     results = clustering._autocorr(data_tree, rand_tree, radii_euclidean,
-                                   est_type=est_type, err_type=err_type,
-                                   num_threads=4)
+                                   **kwargs)
 
-    results.radii_nominal = np.array(radii_deg)
+    results.radii_nominal = radii_deg
     results.radii_units = "degrees"
 
     return results
