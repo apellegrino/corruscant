@@ -3,7 +3,7 @@ SRC= src
 BIN= bin
 OBJ= obj
 
-all: python benchmark
+all: python
 
 .PHONY: python
 python: mkdirs ${BIN}/libkdtree.so ${BIN}/libcoords.so
