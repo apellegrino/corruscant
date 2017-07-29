@@ -122,10 +122,8 @@ def validate_points(points):
     if newpoints is not points:
         warnings.warn(
                 "Data array is being copied "
-                "to have shape {:s}".format(
-                                    points.size, str(newpoints.shape)
-                                          ),
-                        RuntimeWarning
+                "to have shape {:s}".format(str(newpoints.shape)),
+                RuntimeWarning
                       )
 
     return newpoints
@@ -319,8 +317,7 @@ class twopoint_data:
     def estimate(self):
         estfunc = self.estimator
         dd, dr, rr = self.total_pair_counts()
-        self.estimation = estfunc(dd, dr, rr, self.dtree.size, self.rtree.size)
-        return self.estimation
+        return estfunc(dd, dr, rr, self.dtree.size, self.rtree.size)
 
     def covariance(self):
 
@@ -348,12 +345,14 @@ class twopoint_data:
                         self.radii_euclidean.size-1)
                        )
 
+        estimation = self.estimate()
+
         for fid in range(1,self.dtree.N_fields+1):
             dd, dr, rr = self.field_pair_counts(fid)
             est_per_field = est_func(dd, dr, rr, 
                                      dfield_sizes[fid-1],rfield_sizes[fid-1])
 
-            diff = est_per_field - self.estimation
+            diff = est_per_field - estimation
 
             # covariance matrix
             rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
@@ -373,6 +372,7 @@ class twopoint_data:
         elif self.error_type == "poisson":
             dd_tot, dr_tot, rr_tot = self.total_pair_counts()
 
+            estimation = self.estimate()
             with np.errstate(divide='ignore', invalid='ignore'):
                 error = np.divide(1 + estimation,np.sqrt(dd_tot))
                 error[np.isneginf(error)] = np.nan
