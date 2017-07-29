@@ -8,24 +8,23 @@ rsize = dsize*20
 # generate random points in a cube
 np.random.seed(3)
 X_data = np.random.rand(dsize, 3)
-X_random = np.random.rand(rsize, 3)
+X_rand = np.random.rand(rsize, 3)
 
 # choose radius bin edges
 radii = np.logspace(-2.5,-1.,6)
 
 # give each data point and random point a field ID
-# for a simple example, call the x < 0.5 region `field 1` and the x > 0.5
-# region `field 2`
-data_fields = np.where(X_data[:,0] < 0.5, 1, 2)
-rand_fields = np.where(X_random[:,0] < 0.5, 1, 2)
+# we will split up the data into fourths in the x dimension
+data_fields = (X_data[:,0] * 4).astype('int32') + 1
+rand_fields = (X_rand[:,0] * 4).astype('int32') + 1
 
 # generate K-d trees
 dtree = twopoint.clustering.tree(X_data, data_fields)
-rtree = twopoint.clustering.tree(X_random, rand_fields)
+rtree = twopoint.clustering.tree(X_rand, rand_fields)
 
 # get the correlation function results
 results = twopoint.threedim.autocorr(dtree, rtree, radii,
                            est_type="landy-szalay",
-                           err_type='jackknife', num_threads=4)
+                           err_type="jackknife", num_threads=4)
 
 print(results)
