@@ -402,15 +402,24 @@ class twopoint_data:
         if err is None:
             err = [None] * len(est)
 
+        # calc column widths for pair counts
+        dd_width = max([len(str(count)) for count in dd_tot]) + 2
+        dr_width = max([len(str(count)) for count in dr_tot]) + 2
+        rr_width = max([len(str(count)) for count in rr_tot]) + 2
+
+
         str_rep = [
-                "Bin Range    ", "DD".ljust(15, ' '),
-                    "DR".ljust(15, ' '), "RR".ljust(15, ' '),
+                    "\n",
+                    "Bin L ".ljust(9), "Bin R ".ljust(9), "DD".ljust(dd_width, ' '),
+                    "DR".ljust(dr_width, ' '), "RR".ljust(rr_width, ' '),
                     "Estimator".ljust(11, ' '), "Error".ljust(10, ' '), "\n",
                     ]
 
         # add optional units to radii column, e.g. degrees
         if self.radii_units is not None:
-            str_rep.append("({:s})\n".format(self.radii_units))
+            str_rep.append("  ({:s})\n".format(self.radii_units))
+        else:
+            str_rep.append("  (Data units)\n")
 
 
         str_rep.append("-" * 79 + "\n")
@@ -430,14 +439,13 @@ class twopoint_data:
                 errv_s =  "{:.2E}".format(errv)
 
             s = [
-                    "{:<13}".format(rl_s),
-                    "{:<15}".format(dd),
-                    "{:<15}".format(dr),
-                    "{:<15}".format(rr),
+                    "{:<9}".format(rl_s),
+                    "{:<9}".format(ru_s),
+                    "{:<{:d}}".format(dd, dd_width),
+                    "{:<{:d}}".format(dr, dr_width),
+                    "{:<{:d}}".format(rr, rr_width),
                     "{:<11}".format(estv_s),
                     "{:<10}".format(errv_s),
-                    "\n",
-                    "to {:<10}".format(ru_s),
                     "\n",
                 ]
 
