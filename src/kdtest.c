@@ -2,11 +2,6 @@
 
 #include "kdtree.h"
 
-int nodesize(void) {
-    return sizeof(node_t);
-}
-
-
 static inline int left_child(int p)
 {
     return 2*p;

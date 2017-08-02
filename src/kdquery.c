@@ -41,7 +41,7 @@ static inline void count_node(double n, double rsq, field_counter_t * counter,
     return;
 }
 
-static inline double norm2(datum_t * restrict a, datum_t * restrict b)
+static inline double norm2(datum_t * a, datum_t * b)
 {
     double sum = 0.0;
     int i;
