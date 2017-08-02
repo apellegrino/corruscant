@@ -28,11 +28,6 @@ static inline void swapInt(int * a, int * b)
     *b = temp;
 }
 
-static inline int min(int a, int b)
-{
-    return a < b ? a : b;
-}
-
 /*
  *  Return median index of sorted array given edges. With choice of rounding to
  *  the left or right for even lengths, we choose right so that nodes with one
