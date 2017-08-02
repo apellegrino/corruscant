@@ -40,14 +40,9 @@ static void count_node(double n, double rsq, field_counter_t * counter, int this
     return;
 }
 
-static inline double norm2(datum_t * a, datum_t * b)
-/*
+static inline double norm2(datum_t * restrict a, datum_t * restrict b)
 {
-    return a*a+b*b+c*c;
-}
-*/
-{
-    double sum = 0;
+    double sum = 0.0;
     int i;
     for(i=0; i<NDIM; i++) {
         sum += (a->value[i] - b->value[i])*(a->value[i] - b->value[i]);
