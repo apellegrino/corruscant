@@ -12,6 +12,8 @@
 
 typedef struct datum {
     double value[NDIM];
+    unsigned int field:8;
+    unsigned int weight:8;
 } datum_t;
 
 typedef struct node {
@@ -19,7 +21,6 @@ typedef struct node {
     datum_t data;
     unsigned int has_lchild:1;
     unsigned int has_rchild:1;
-    unsigned int id:8;
     unsigned int dim:8;
 } node_t;
 

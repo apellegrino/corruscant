@@ -6,13 +6,16 @@ import warnings
 class node(Structure):
     pass
 
+class datum(Structure):
+    pass
+
 class kdtree(Structure):
     _fields_ = [
         ("node_data",POINTER(node)),
         ("size",c_int),
         ("memsize",c_int),
         ("num_fields",c_int),
-        ("data",POINTER(c_double)),
+        ("data",POINTER(datum)),
         ("fields",POINTER(c_int)),
         ("args",POINTER(c_int)),
                 ]
@@ -117,7 +120,7 @@ def validate_points(points):
                          "or (3, N). The provided array has "
                          "shape {:s}".format(str(points.shape)))
 
-    newpoints = np.require(points, requirements='COA')
+    newpoints = np.require(points, requirements='AC')
 
     if newpoints is not points:
         warnings.warn(
@@ -136,7 +139,7 @@ def validate_fields(fields, points):
         raise ValueError("Field IDs must be a 1-d array of length equal to "
                          "the number of points")
 
-    newfields = np.require(fields, dtype='int32', requirements='COA')
+    newfields = np.require(fields, dtype='int32', requirements='AC')
 
     if newfields is not fields:
         warnings.warn("Field array is being copied to have type int32",
@@ -266,9 +269,10 @@ class tree:
             self.field_sizes = self._calc_field_sizes()
 
         self.points = points
-        self.size = points.shape[0]
 
         self._make_tree()
+
+        self.size = self.ctree.size
 
     def _calc_field_sizes(self):
         f = self.fields

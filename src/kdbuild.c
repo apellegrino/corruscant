@@ -60,10 +60,80 @@ int superkey_compare(datum_t * data, int msd, int a, int b)
         bval = (data[b]).value[dim];
         printf("DIM %d : %f %f\n", dim, aval, bval);
     }
-    exit(1);
+    exit(EXIT_FAILURE);
 } 
 
+int superkey_dupesafe(datum_t * data, int a, int b)
+{
+    int i;
+    double aval, bval;
 
+    for(i=0; i<NDIM; i++) {
+        aval = (data[a]).value[i];
+        bval = (data[b]).value[i];
+        if(aval == bval) continue;
+
+        return aval < bval ? 1 : -1;
+    }
+    
+    return 0;
+} 
+
+static void mergesort_x(datum_t * data, int left, int right)
+{
+    if(right == left) return;
+    if(right - left == 1) {
+        if(superkey_dupesafe(data, left, right) == -1) {
+            swapDatum(data+left, data+right);
+        }
+        return;
+    }
+
+    int m = median(left, right);
+
+    mergesort_x(data, left, m-1);
+    mergesort_x(data, m, right);
+
+    datum_t * new_data = (datum_t *) malloc((right-left+1) * sizeof(datum_t));
+
+    int lc = left;
+    int rc = m;
+    int nc = 0;
+
+    while(lc < m && rc <= right) {
+        if(superkey_dupesafe(data, lc, rc) == 1) { // if data[lc] < data[rc]
+            new_data[nc] = data[lc];
+            lc++; nc++;
+        } else if(superkey_dupesafe(data, lc, rc) == -1) {
+            new_data[nc] = data[rc];
+            rc++; nc++;
+        } else { // equal points, i.e. duplicates
+            new_data[nc] = data[lc];
+            lc++; nc++;
+            new_data[nc] = data[rc];
+            rc++; nc++;
+            
+        }
+    }
+
+    while(lc < m) {
+        new_data[nc] = data[lc];
+        lc++; nc++;
+    }
+    while(rc <= right) {
+        new_data[nc] = data[rc];
+        rc++; nc++;
+    }
+
+    int i;
+    for(i=0; i<right-left+1; i++) {
+        data[left+i] = new_data[i];
+    }
+
+    free(new_data);
+
+    return;
+}
 /* 
  *  perform a merge sort on the array data[left] to data[right],
  *  which performs identical operations on another array ind[left] to ind[right]
@@ -76,8 +146,8 @@ static void merge_supersort(datum_t * data, int * ind, int left, int right, int 
         if(!superkey_compare(data, dim, left, right)) {
             swapDatum(data+left,data+right);
             swapInt(ind+left,ind+right);
-            return;
         }
+        return;
     }
 
     int m = median(left,right);
@@ -148,7 +218,7 @@ static int * supersort(datum_t * data, int size, int dim)
     for(i=0; i<size; i++) {
         if(indices[i] < 0 || indices[i] >= size) {
             printf("ERROR: arg array not initialized properly\n");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -281,14 +351,13 @@ double arg_variance(int * args, double * data, int begin, int end)
         var += (data[args[i]] - avg)*(data[args[i]] - avg);
     }
 
-    // unbiased estimator of variance with 1/(n-1) coeff.
-    //var /= (end-begin);
+    // we do not need a coefficient in front, because only data with same
+    // N will be compared
     return var;
 }
 
 void build(kdtree_t * tree, int ind, int left, int right)
 {
-    int *ids;
     int med, med_arg;
 
     node_t * parent = tree->node_data + ind;
@@ -310,9 +379,6 @@ void build(kdtree_t * tree, int ind, int left, int right)
 
     /* the median point in dim tdim has index med_arg */
     parent->data = tree->data[med_arg];
-
-    ids = tree->fields;
-    if (ids != NULL) parent->id = ids[med_arg];
 
     /* 
      *  Base cases: subtree of size 1, 2 or 3
@@ -369,30 +435,90 @@ static int pow2ceil(int x)
     return x;
 }
 
-kdtree_t tree_construct(double * data, int * fields, int length, int num_fields)
+kdtree_t tree_construct(double * xyz, int * fields, int length, int num_fields)
 {
-    kdtree_t tree;
-    tree.size = length;
-    tree.memsize = pow2ceil(length);
-    tree.node_data = (node_t *) calloc( tree.memsize, sizeof(node_t) );
+    // replace once dupe checking is done
+    //kdtree_t tree;
+    //tree.size = length;
+    //tree.memsize = pow2ceil(length);
+    //tree.node_data = (node_t *) calloc(tree.memsize, sizeof(node_t));
 
-    // Undefined behavior, possibly change
-    tree.data = (datum_t *) data;
-    tree.fields = fields;
+    int i;
+
+    // copy unchecked data
+    datum_t * uniquedata = (datum_t *) malloc(length * sizeof(datum_t));
+
+    for(i=0; i<length; i++) {
+        uniquedata[i].value[0] = xyz[3*i];
+        uniquedata[i].value[1] = xyz[3*i+1];
+        uniquedata[i].value[2] = xyz[3*i+2];
+        uniquedata[i].field = 0;
+        uniquedata[i].weight = 1;
+    }
+
+    if(fields != NULL) {
+        for(i=0; i<length; i++) {
+            uniquedata[i].field = fields[i];
+        }
+
+    }        
+
+    // mergesort data, 0th dim as most significant
+    mergesort_x(uniquedata, 0, length-1);
+
+    /* remove duplicates */
+
+    int old = 0;
+    int drop = 1;
+    int new;
+
+    for(new=1; new<length; new++) {
+        if(superkey_dupesafe(uniquedata, old, new) == 0) {
+            uniquedata[old].weight++;
+            continue;
+        }
+
+        uniquedata[drop] = uniquedata[new];
+        old++; drop++;
+    }
+
+    int newlength = old+1;
+    uniquedata = realloc(uniquedata, newlength * sizeof(datum_t));
+
+    int sumweights = 0;
+    for(i=0; i<newlength; i++) {
+        sumweights += uniquedata[i].weight;
+    }
+
+    //printf("%d duplicates consolidated\n", length-newlength);
+
+    if(sumweights != length) {
+        printf("Invalid weights: %d out of %d\n", sumweights, length);
+        exit(EXIT_FAILURE);
+    }
+
+    kdtree_t tree;
+    tree.size = newlength;
+    tree.memsize = pow2ceil(newlength);
+    tree.node_data = (node_t *) calloc(tree.memsize, sizeof(node_t));
+
+    tree.data = uniquedata;
+    //tree.fields = fields;
     tree.num_fields = num_fields;
 
     /* Argsort the inputs */
     int dim;
     for(dim=0; dim<NDIM; dim++) {
-        tree.args[dim] = supersort((datum_t *) data, length, dim);
+        tree.args[dim] = supersort(tree.data, newlength, dim);
     }
 
-    build( &tree, ROOT, 0, length-1 );
+    build( &tree, ROOT, 0, newlength-1 );
 
     /* arg arrays are only necessary for building the tree */
     for(dim=0; dim<NDIM; dim++) {
         free(tree.args[dim]);
     }
+    free(uniquedata);
 
     return tree;
 }

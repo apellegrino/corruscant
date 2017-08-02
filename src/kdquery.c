@@ -4,17 +4,18 @@
 #include <pthread.h>
 #include "kdtree.h"
 
-static datum_t * _data_query;
+static double * _data_query;
 static int *_field_query;
 static node_t * _tree_data;
 static int _include;
 static int _use_err;
 
-static void count_node(double n, double rsq, field_counter_t * counter, int this_field, int query_field)
+static inline void count_node(double n, double rsq, field_counter_t * counter,
+                       int this_field, int query_field, int this_weight)
 {
     if (n < rsq) {
         // index 0 represents whole dataset
-        counter->array[0]++;
+        counter->array[0] += this_weight;
 
         // no error
         if(!_use_err) return;
@@ -22,19 +23,19 @@ static void count_node(double n, double rsq, field_counter_t * counter, int this
         // field-to-field error -- increment counter for this_field if it
         // coincides with query_field
         if (_include) {
-            if (this_field == query_field) (counter->array[this_field])++;
+            if (this_field == query_field) (counter->array[this_field]) += this_weight;
         }
         else { //jackknife error -- increment all but this_field and query_field
             int i;
             // needs vectorization?
-            for(i=1; i<counter->size; i++) { (counter->array[i])++; }
+            for(i=1; i<counter->size; i++) { (counter->array[i]) += this_weight; }
             /* 
              * un-count this pair for the querying point field or that of the
              * point on the tree, but don't double count if they have the same
              * field
              */
-            (counter->array[this_field])--;
-            if (this_field != query_field) (counter->array[query_field])--;
+            (counter->array[this_field]) -= this_weight;
+            if (this_field != query_field) (counter->array[query_field]) -= this_weight;
         }
     }
     return;
@@ -67,34 +68,40 @@ static void radius(int pi, int qi, double r, field_counter_t * counter)
 {
     //int i;
     node_t p = *(_tree_data+pi);
-    int this_field = p.id;
-
-    
-    datum_t datum = _data_query[qi];
+    int this_field = p.data.field;
 
     int query_field = 0;
     if(_field_query != NULL) {
         query_field = _field_query[qi];
     }
 
+    double val;
+
     double rsq;
     double pos_upper = 0.0, pos_lower = 0.0, point = 0.0;
 
     rsq = r*r;
 
+    datum_t datum;
+    int i;
+    for(i=0;i<NDIM;i++) {
+        datum.value[i] = _data_query[NDIM*qi+i];
+    }
     double n = norm2(&p.data, &datum);
+
     if( !p.has_lchild ) { /* no children */
-        count_node(n, rsq, counter, this_field, query_field);
+        count_node(n, rsq, counter, this_field, query_field, p.data.weight);
         return;
 
     } else if ( !p.has_rchild ) { /* one child */
-        count_node(n, rsq, counter, this_field, query_field);
+        count_node(n, rsq, counter, this_field, query_field, p.data.weight);
         radius(left_child(pi),qi,r,counter);
         return;
 
     } else { /* two children */
-        pos_upper = datum.value[p.dim] + r;
-        pos_lower = datum.value[p.dim] - r;
+        val = _data_query[NDIM*qi+p.dim];
+        pos_upper = val + r;
+        pos_lower = val - r;
         point = p.data.value[p.dim];
 
         if (pos_upper < point) {
@@ -102,7 +109,7 @@ static void radius(int pi, int qi, double r, field_counter_t * counter)
         } else if (pos_lower > point) {
             radius(right_child(pi),qi,r,counter);
         } else {
-            count_node(n, rsq, counter, this_field, query_field);
+            count_node(n, rsq, counter, this_field, query_field, p.data.weight);
             radius(left_child(pi),qi,r,counter);
             radius(right_child(pi),qi,r,counter);
         }
@@ -167,7 +174,7 @@ void * twopoint_wrap(void *voidargs)
  * Compute the sum of the number of data points in the tree which lie within
  * radius r of each of the points in the array
  */
-static long long * pair_count(kdtree_t tree, datum_t * data,
+static long long * pair_count(kdtree_t tree, double * data,
                                 int * fields, int length, int num_fields,
                                 double r, int num_threads)
 {
@@ -225,7 +232,7 @@ long long * pair_count_jackknife(kdtree_t tree, double * data, int * fields,
     _include = 0;
     _use_err = 1;
 
-    return pair_count(tree, (datum_t *) data, fields, length, num_fields, r, num_threads);
+    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
 }
 
 long long * pair_count_ftf(kdtree_t tree, double * data, int * fields,
@@ -235,12 +242,12 @@ long long * pair_count_ftf(kdtree_t tree, double * data, int * fields,
     // include only the field of the querying point
     _include = 1;
     _use_err = 1;
-    return pair_count(tree, (datum_t *) data, fields, length, num_fields, r, num_threads);
+    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
 }
 
 long long * pair_count_noerr(kdtree_t tree, double * data, int length,
                              double r, int num_threads)
 {
     _use_err = 0;
-    return pair_count(tree, (datum_t *) data, NULL, length, 0, r, num_threads);
+    return pair_count(tree, data, NULL, length, 0, r, num_threads);
 }
