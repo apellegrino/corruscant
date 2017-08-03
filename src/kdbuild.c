@@ -226,6 +226,12 @@ static int * supersort(datum_t * data, int size, int dim)
     return indices;
 }
 
+/*
+ *  Partition a section of the array `args` from indices `left` to `right` as
+ *  being either indicies to values in `vals` smaller or larger than the key.
+ *  Leave a null value in the middle in place of the index that locates `key`
+ *  inside `vals`.
+ */
 static void partition(kdtree_t * tree, int left, int right, int d_key)
 {
     int med_index = median(left,right);
@@ -268,13 +274,6 @@ static void partition(kdtree_t * tree, int left, int right, int d_key)
     free(args_new);
 }
 
-/*
- *  Partition a section of the array `args` from indicies `left` to `right` as
- *  being either indicies to values in `vals` smaller or larger than the key.
- *  Leave a null value in the middle in place of the index that locates `key`
- *  inside `vals`.
- */
-
 static inline int left_child(int p)
 {
     return 2*p;
@@ -292,15 +291,14 @@ void destroy(kdtree_t t)
 
 int max_variance_dim(kdtree_t * tree, datum_t * data, int begin, int end)
 {
-    // TODO: initialize for arbitrary NDIM
-    double avg[NDIM] = {0.0, 0.0, 0.0};
-    double var[NDIM] = {0.0, 0.0, 0.0};
-    double temp[NDIM] = {0.0, 0.0, 0.0};
+    double avg[NDIM]  = {0};
+    double var[NDIM]  = {0};
+    double temp[NDIM] = {0};
 
     int i, j, arg;
     int * args;
 
-    // Maybe reverse loop order later
+    // Maybe reverse loop nesting later
     for(j=0; j<NDIM; j++) {
         args = tree->args[j];
 
@@ -366,8 +364,7 @@ void build(kdtree_t * tree, int ind, int left, int right)
     med = median(left,right);
 
     /* Choose dim with max. variance */
-    int tdim;
-    tdim = 0;
+    int tdim = 0;
     if(right-left > 2) {
         tdim = max_variance_dim(tree, tree->data, left, right);
     }
