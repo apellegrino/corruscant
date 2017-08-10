@@ -392,19 +392,20 @@ class twopoint_data:
         dr_width = max([len(str(count)) for count in dr_tot]) + 2
         rr_width = max([len(str(count)) for count in rr_tot]) + 2
 
-
-        str_rep = [
-                    "\n",
+        lines = [ "\n" ]
+        header = [
                     "Bin L ".ljust(9), "Bin R ".ljust(9), "DD".ljust(dd_width, ' '),
                     "DR".ljust(dr_width, ' '), "RR".ljust(rr_width, ' '),
-                    "Estimator".ljust(11, ' '), "Error".ljust(10, ' '), "\n",
-                    ]
+                    "Estimator".ljust(11, ' '), "Error".ljust(10, ' '),
+                  ]
+
+        lines.append(''.join(header))
 
         # add optional units to radii column, e.g. degrees
-        str_rep.append("{:^14}".format("({:s})\n".format(self.radii_units)))
+        lines.append("{:^14}".format("({:s})".format(self.radii_units)))
 
 
-        str_rep.append("-" * 79 + "\n")
+        lines.append("-" * 79)
 
         ########## end of table header ##########
 
@@ -428,9 +429,8 @@ class twopoint_data:
                     "{:<{:d}}".format(rr, rr_width),
                     "{:<11}".format(estv_s),
                     "{:<10}".format(errv_s),
-                    "\n",
-                ]
+                 ]
 
-            str_rep.append(''.join(s))
+            lines.append(''.join(s))
 
-        return ''.join(str_rep)
+        return '\n'.join(lines)
