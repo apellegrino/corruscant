@@ -1,12 +1,9 @@
 from ctypes import CDLL, POINTER, c_double, c_int
-import os
 import numpy as np
 
 from . import clustering
 
-path_here = os.path.abspath(__file__)
-path_dir = os.path.dirname(path_here)
-coordlib = CDLL("{:s}/../bin/libcoords.so".format(path_dir))
+coordlib = CDLL("{:s}/bin/libcoords.so".format(clustering.PROJECT_PATH))
 
 coordlib.radec2cart64.restype = None
 coordlib.radec2cart64.argtypes = [
@@ -30,8 +27,18 @@ def autocorr(data_tree, rand_tree, radii_deg, **kwargs):
     return results
 
 def cartesian(ra, dec):
-    """Returns array of cartesian points projected onto the unit sphere given
-    ra, dec arrays.
+    """Convert points described by arrays of RA and DEC into cartesian points
+    projected onto the unit sphere.
+
+    Parameters
+    ----------
+    ra (array-like): RA values in degrees
+    dec (array-like): DEC values in degrees
+
+    Returns
+    -------
+    Numpy array of shape (N,3) of x,y,z points where N is the length of the
+    input arrays
     """
 
     #sph = np.require(

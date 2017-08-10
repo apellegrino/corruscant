@@ -7,36 +7,12 @@
 static double * _data_query;
 static int *_field_query;
 static node_t * _tree_data;
-static int _include;
-static int _use_err;
 
 static inline void count_node(double n, double rsq, field_counter_t * counter,
                        int this_field, int query_field, int this_weight)
 {
     if (n < rsq) {
-        // index 0 represents whole dataset
-        counter->array[0] += this_weight;
-
-        // no error
-        if(!_use_err) return;
-
-        // field-to-field error -- increment counter for this_field if it
-        // coincides with query_field
-        if (_include) {
-            if (this_field == query_field) (counter->array[this_field]) += this_weight;
-        }
-        else { //jackknife error -- increment all but this_field and query_field
-            int i;
-            // needs vectorization?
-            for(i=1; i<counter->size; i++) { (counter->array[i]) += this_weight; }
-            /* 
-             * un-count this pair for the querying point field or that of the
-             * point on the tree, but don't double count if they have the same
-             * field
-             */
-            (counter->array[this_field]) -= this_weight;
-            if (this_field != query_field) (counter->array[query_field]) -= this_weight;
-        }
+        counter->array[query_field * counter->num_fields + this_field] += this_weight;
     }
     return;
 }
@@ -66,7 +42,6 @@ static inline int right_child(int p)
  */
 static void radius(int pi, int qi, double r, field_counter_t * counter)
 {
-    //int i;
     node_t p = *(_tree_data+pi);
     int this_field = p.data.field;
 
@@ -124,6 +99,7 @@ typedef struct shared_args {
     int node_stop; // actually one after the last index to stop at
     int num_fields;
     int num_threads;
+    int counter_size;
     field_counter_t ** counters;
     double r;
 } shared_args_t;
@@ -154,13 +130,14 @@ void * twopoint_wrap(void *voidargs)
     targs = (thread_args_t *) voidargs;
     shared_args_t * args;
     args = targs->ptr;
-    
+
     int rank = targs->thread_rank;
     assign_idx(rank, args->num_threads, args->n, &start, &stop);
 
     field_counter_t * new_counter = malloc(sizeof(field_counter_t));
-    new_counter->array = calloc(args->num_fields+1, sizeof(long long));
-    new_counter->size = args->num_fields+1;
+    new_counter->total = 0;
+    new_counter->array = calloc(args->counter_size, sizeof(long long));
+    new_counter->num_fields = args->num_fields;
     args->counters[rank] = new_counter;
    
     for(i=start; i<stop; i++) {
@@ -174,7 +151,7 @@ void * twopoint_wrap(void *voidargs)
  * Compute the sum of the number of data points in the tree which lie within
  * radius r of each of the points in the array
  */
-static long long * pair_count(kdtree_t tree, double * data,
+long long * pair_count(kdtree_t tree, double * data,
                                 int * fields, int length, int num_fields,
                                 double r, int num_threads)
 {
@@ -194,6 +171,7 @@ static long long * pair_count(kdtree_t tree, double * data,
     ss.r = r;
     ss.num_fields = num_fields;
     ss.num_threads = num_threads;
+    ss.counter_size = num_fields * tree.num_fields;
     
     thread_args_t targs[num_threads];
 
@@ -205,7 +183,7 @@ static long long * pair_count(kdtree_t tree, double * data,
 
     pthread_t threads[num_threads];
 
-    long long * results = calloc(num_fields+1, sizeof(long long));
+    long long * results = calloc(ss.counter_size, sizeof(long long));
 
     // create threads
     for(i=0; i<num_threads; i++) 
@@ -214,7 +192,7 @@ static long long * pair_count(kdtree_t tree, double * data,
     // join threads, sum the array for each thread into one array
     for(i=0; i<num_threads; i++) {
         pthread_join(threads[i], NULL);
-        for(j=0; j<num_fields+1; j++) {
+        for(j=0; j<ss.counter_size; j++) {
             results[j] += ((ss.counters[i])->array)[j];
         }
         free(ss.counters[i]->array);
@@ -222,32 +200,4 @@ static long long * pair_count(kdtree_t tree, double * data,
     }
     free(ss.counters);
     return results;
-}
-
-long long * pair_count_jackknife(kdtree_t tree, double * data, int * fields,
-                                 int length, int num_fields, double r,
-                                 int num_threads)
-{
-    // exclude only the field of the querying point
-    _include = 0;
-    _use_err = 1;
-
-    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
-}
-
-long long * pair_count_ftf(kdtree_t tree, double * data, int * fields,
-                           int length, int num_fields, double r,
-                           int num_threads)
-{
-    // include only the field of the querying point
-    _include = 1;
-    _use_err = 1;
-    return pair_count(tree, data, fields, length, num_fields, r, num_threads);
-}
-
-long long * pair_count_noerr(kdtree_t tree, double * data, int length,
-                             double r, int num_threads)
-{
-    _use_err = 0;
-    return pair_count(tree, data, NULL, length, 0, r, num_threads);
 }

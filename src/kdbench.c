@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     }
 
     for(i=0; i<SIZE; i++) {
-        f[i] = rand() % NUM_FIELDS + 1;
+        f[i] = rand() % NUM_FIELDS;
     }
     printf("Generated random data...\n");
 
@@ -65,9 +65,27 @@ int main(int argc, char *argv[]) {
     long long * output = pair_count_jackknife(data_tree, data, f, SIZE, NUM_FIELDS, radius, NUM_THREADS);
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
-    for(i=0; i<NUM_FIELDS+1; i++) {
+    long long sum = 0;
+    for(i=0; i<NUM_FIELDS*NUM_FIELDS; i++) {
         printf("%lld ", output[i]);
+        sum += output[i];
     }
+    printf("Total = %lld\n", sum);
+    printf("\n");
+
+    printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)
+                                + (finish.tv_nsec-start.tv_nsec)/1e9);
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    output = pair_count_noerr(data_tree, data, SIZE, radius, NUM_THREADS);
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+
+    sum = 0;
+    for(i=0; i<NUM_FIELDS; i++) {
+        printf("%lld ", output[i]);
+        sum += output[i];
+    }
+    printf("Total = %lld\n", sum);
     printf("\n");
 
     printf("Completed query in %f sec\n", (finish.tv_sec-start.tv_sec)

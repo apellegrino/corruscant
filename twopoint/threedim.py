@@ -1,12 +1,9 @@
 from ctypes import CDLL, POINTER, c_double, c_int
-import os
 import numpy as np
 
 from . import clustering
 
-path_here = os.path.abspath(__file__)
-path_dir = os.path.dirname(path_here)
-coordlib = CDLL("{:s}/../bin/libcoords.so".format(path_dir))
+coordlib = CDLL("{:s}/bin/libcoords.so".format(clustering.PROJECT_PATH))
 
 coordlib.radecdist2cart64.restype = None
 coordlib.radecdist2cart64.argtypes = [
@@ -22,17 +19,34 @@ def autocorr(data_tree, rand_tree, radii, **kwargs):
     results = clustering._autocorr(data_tree, rand_tree, radii,
                                    **kwargs)
     results.radii_nominal = results.radii_euclidean
+    results.radii_units = "Data units"
 
     return results
 
 def cartesian(ra, dec, distance=None, z=None, cosmology=None):
-    """Returns array of cartesian points given ra, dec, distance arrays or 
-    ra, dec, redshift arrays with an Astropy cosmology. Provided distances
-    take precedence over provided redshift and cosmology.
+    """Creates array of cartesian points given ra, dec, distance arrays or ra,
+    dec, redshift arrays with an Astropy cosmology. Provided distances take
+    precedence over provided redshift and cosmology. Either `distance` or `z`
+    and `cosmology` must be provided.
+
+    Parameters
+    ----------
+    ra (array-like): RA input values
+    dec (array-like): DEC input values
+    distance (array-like, optional): distance input values
+    z (array-like, optional): redshift input values
+    cosmology (astropy.cosmology object, optional): a cosmology to calculate
+    comoving distances from redshifts
+
+    Returns
+    -------
+    Numpy array of shape (N,3) of x,y,z points where N is the length of the
+    input arrays
     """
 
     if distance is None:
         # calculate comoving distance
+        z = np.array(z)
         distance = cosmology.comoving_distance(z)
 
     #sph = np.require(
@@ -48,11 +62,11 @@ def cartesian(ra, dec, distance=None, z=None, cosmology=None):
     #                        out_pt.ctypes.data_as(POINTER(c_double)),
     #                        )
 
-    N = ra.size
-
     ra = np.require(ra, requirements='AC')
     dec = np.require(dec, requirements='AC')
     distance = np.require(distance, requirements='AC')
+
+    N = ra.size
 
     cartesian = np.empty((N, 3))
 

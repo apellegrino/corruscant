@@ -19,8 +19,8 @@ radii_deg = np.logspace(-2.,0.,6)
 
 # give each data point and random point a field ID
 # for a simple example, we divide the data by 90 degrees in RA
-data_fields = (data_ra / 90.).astype('int32') + 1
-rand_fields = (rand_ra / 90.).astype('int32') + 1
+data_fields = (data_ra / 90.).astype('int32')
+rand_fields = (rand_ra / 90.).astype('int32')
 
 # transform to cartesian coords
 X_data = twopoint.angular.cartesian(data_ra, data_dec)

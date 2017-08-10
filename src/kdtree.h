@@ -25,8 +25,9 @@ typedef struct node {
 } node_t;
 
 typedef struct field_counter {
+    long long total;
     long long * array;
-    int size;
+    int num_fields;
 } field_counter_t;
 
 typedef struct kdtree {

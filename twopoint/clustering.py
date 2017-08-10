@@ -20,9 +20,8 @@ class kdtree(Structure):
         ("args",POINTER(c_int)),
                 ]
 
-path_here = abspath(__file__)
-path_dir = dirname(path_here)
-kdlib = CDLL("{:s}/../bin/libkdtree.so".format(path_dir))
+PROJECT_PATH = dirname(dirname(abspath(__file__)))
+kdlib = CDLL("{:s}/bin/libkdtree.so".format(PROJECT_PATH))
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -36,10 +35,10 @@ kdlib.destroy.restype = None
 kdlib.destroy.argtypes = [kdtree]
 
 # returning array w/ numbers of pair counts
-kdlib.pair_count_jackknife.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
+kdlib.pair_count.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
                                                             shape=(255,) )
 
-kdlib.pair_count_jackknife.argtypes = [
+kdlib.pair_count.argtypes = [
                             kdtree, # tree to query
                             POINTER(c_double), # data to query with
                             POINTER(c_int), # fields to query with
@@ -49,63 +48,23 @@ kdlib.pair_count_jackknife.argtypes = [
                             c_int, # num_threads
                             ]
 
-kdlib.pair_count_ftf.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
-                                                      shape=(255,) )
+def _query_tree(tree, points, radius, num_threads, fields=None,
+                N_fields=1):
 
-kdlib.pair_count_ftf.argtypes = [
-                            kdtree, # tree to query
-                            POINTER(c_double), # data to query with
-                            POINTER(c_int), # fields to query with
-                            c_int, # data array size
-                            c_int, # num_fields
-                            c_double, # radius
-                            c_int, # num_threads
-                            ]
+    fields_arg = None
+    if fields is not None:
+        fields_arg = fields.ctypes.data_as(POINTER(c_int))
 
-kdlib.pair_count_noerr.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
-                                                        shape=(255,) )
-
-kdlib.pair_count_noerr.argtypes = [
-                            kdtree, # tree to query
-                            POINTER(c_double), # data to query with
-                            c_int, # data array size
-                            c_double, # radius
-                            c_int, # num_threads
-                            ]
-
-def _query_tree(tree, points, radius, num_threads, errtype, fields=None,
-                N_fields=0):
-
-    N_fields = tree.N_fields
-    
-    counts = None
-    if errtype == 'jackknife':
-        counts = kdlib.pair_count_jackknife(tree.ctree,
-                                        points.ctypes.data_as(POINTER(c_double)),
-                                        fields.ctypes.data_as(POINTER(c_int)),
-                                        c_int(points.shape[0]),
-                                        c_int(N_fields),
-                                        c_double(radius),
-                                        c_int(num_threads)
-                                            )
-    elif errtype == 'field-to-field':
-        counts = kdlib.pair_count_ftf(tree.ctree,
+    counts = kdlib.pair_count(tree.ctree,
                                     points.ctypes.data_as(POINTER(c_double)),
-                                    fields.ctypes.data_as(POINTER(c_int)),
+                                    fields_arg,
                                     c_int(points.shape[0]),
                                     c_int(N_fields),
                                     c_double(radius),
                                     c_int(num_threads)
-                                    )
-    else:
-        counts = kdlib.pair_count_noerr(tree.ctree,
-                                    points.ctypes.data_as(POINTER(c_double)),
-                                    c_int(points.shape[0]),
-                                    c_double(radius),
-                                    c_int(num_threads)
-                                    )
+                                        )
 
-    return counts[:N_fields+1]
+    return counts[:N_fields*tree.N_fields].reshape((N_fields,tree.N_fields))
 
 def validate_points(points):
     points = np.array(points)
@@ -197,42 +156,39 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
         estimator = est_standard
     else:
         raise ValueError("Estimator type for Xi \"{:s}\" "
-                         "not valid".format(est_type))
+                         "not valid. Try \"standard\", \"hamilton\", or "
+                         "\"landy-szalay\"".format(est_type))
 
-    valid_err_types = ["jackknife", "field-to-field", "poisson", None]
+    #valid_err_types = ["jackknife", "field-to-field", "poisson", None]
 
-    if err_type not in valid_err_types:
-        raise ValueError("Estimator error type \"{:s}\" not "
-                         "valid".format(err_type))
+    #if err_type not in valid_err_types:
+    #    raise ValueError("Estimator error type \"{:s}\" not "
+    #                     "valid".format(err_type))
 
-    if data_tree.fields is None and err_type is not None:
-        raise ValueError("Error cannot be calculated when data tree has no "
-                         "fields")
+    #if data_tree.fields is None and err_type is not None:
+    #    raise ValueError("Error cannot be calculated when data tree has no "
+    #                     "fields")
 
-    if rand_tree.fields is None and err_type is not None:
-        raise ValueError("Error cannot be calculated when random tree has no "
-                         "fields")
+    #if rand_tree.fields is None and err_type is not None:
+    #    raise ValueError("Error cannot be calculated when random tree has no "
+    #                     "fields")
 
     dd = lambda r: _query_tree(data_tree, data_tree.points, r, num_threads,
-                                err_type, data_tree.fields)
+                                data_tree.fields, data_tree.N_fields)
     dd_array = np.diff([dd(r) for r in radii], axis=0)
 
     dr = lambda r: _query_tree(rand_tree, data_tree.points, r, num_threads,
-                                err_type, data_tree.fields)
+                                data_tree.fields, data_tree.N_fields)
     dr_array = np.diff([dr(r) for r in radii], axis=0)
 
-    rr_array = None
-    if not est_type == "standard":
-        rr = lambda r: _query_tree(rand_tree, rand_tree.points, r,
-                                    num_threads, err_type, rand_tree.fields)
-        rr_array = np.diff([rr(r) for r in radii], axis=0)
-    
+    rr = lambda r: _query_tree(rand_tree, rand_tree.points, r,
+                                num_threads, rand_tree.fields, rand_tree.N_fields)
+    rr_array = np.diff([rr(r) for r in radii], axis=0)
 
     data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree,
                          estimator, radii)
 
     data.error_type = err_type
-
     return data
 
 class tree:
@@ -242,14 +198,14 @@ class tree:
 
         if fields is None:
             self.fields = None
-            self.N_fields = 0
+            self.N_fields = 1
         else: 
             fields = validate_fields(fields, points)
 
             unique = np.unique(fields)
-            if not np.all(unique == range(1,np.max(fields)+1)):
+            if not np.all(unique == range(np.max(fields)+1)):
                 raise ValueError("fields must be a 1-D array of integers from "
-                                 "1 to the number of unique fields")
+                                 "1 to the number of unique fields minus one")
 
             self.N_fields = unique.size
 
@@ -276,19 +232,17 @@ class tree:
 
     def _calc_field_sizes(self):
         f = self.fields
-        return np.array([f[f == id].size for id in range(1,self.N_fields+1)])
+        return np.array([f[f == id].size for id in range(0,self.N_fields)])
 
     def _make_tree(self):
         data = self.points.ctypes.data_as(POINTER(c_double))
 
+        f = None
         if self.fields is not None:
             f = self.fields.ctypes.data_as(POINTER(c_int))
-            self.ctree = kdlib.tree_construct(data, f, 
-                                              c_int(self.points.shape[0]),
-                                              c_int(self.N_fields) )
-        else:
-            self.ctree = kdlib.tree_construct(data, None, 
-                                              c_int(self.points.shape[0]), 0 )
+        self.ctree = kdlib.tree_construct(data, f, 
+                                          c_int(self.points.shape[0]),
+                                          c_int(self.N_fields) )
 
     def __del__(self):
         kdlib.destroy(self.ctree)
@@ -307,16 +261,28 @@ class twopoint_data:
         self.error_type = None
 
     def total_pair_counts(self):
-        if self.rr is None:
-            return self.dd[:,0], self.dr[:,0], None
-        else:
-            return self.dd[:,0], self.dr[:,0], self.rr[:,0]
+        return (np.sum(self.dd, axis=(1,2)), np.sum(self.dr, axis=(1,2)),
+                np.sum(self.rr, axis=(1,2)) )
 
-    def field_pair_counts(self, fid):
-        if self.rr is None:
-            return self.dd[:,fid], self.dr[:,fid], None
-        else:
-            return self.dd[:,fid], self.dr[:,fid], self.rr[:,fid]
+    def ftf_pair_counts(self, fid):
+        return self.dd[:,fid,fid], self.dr[:,fid,fid], self.rr[:,fid,fid]
+
+    def jackknife_pair_counts(self, fid):
+        dd_copy = np.copy(self.dd)
+        dr_copy = np.copy(self.dr)
+        rr_copy = np.copy(self.rr)
+
+        dd_copy[:,fid,:] = 0
+        dd_copy[:,:,fid] = 0
+
+        dr_copy[:,fid,:] = 0
+        dr_copy[:,:,fid] = 0
+
+        rr_copy[:,fid,:] = 0
+        rr_copy[:,:,fid] = 0
+
+        return (np.sum(dd_copy, axis=(1,2)), np.sum(dr_copy, axis=(1,2)),
+               np.sum(rr_copy, axis=(1,2)) ) 
 
     def estimate(self):
         estfunc = self.estimator
@@ -328,20 +294,10 @@ class twopoint_data:
         dd_tot, dr_tot, rr_tot = self.total_pair_counts()
 
         if self.error_type is None:
-            return None, None
+            return None
     
         elif self.error_type == "poisson":
-            return None, None
-
-        elif self.error_type == "jackknife":
-            # sizes with one field out
-            dfield_sizes = self.dtree.size - self.dtree.field_sizes
-            rfield_sizes = self.rtree.size - self.rtree.field_sizes
-
-        elif self.error_type == "field-to-field":
-            # sizes with one field in
-            dfield_sizes = self.dtree.field_sizes
-            rfield_sizes = self.rtree.field_sizes
+            return None
 
         est_func = self.estimator
 
@@ -351,21 +307,46 @@ class twopoint_data:
 
         estimation = self.estimate()
 
-        for fid in range(1,self.dtree.N_fields+1):
-            dd, dr, rr = self.field_pair_counts(fid)
-            est_per_field = est_func(dd, dr, rr, 
-                                     dfield_sizes[fid-1],rfield_sizes[fid-1])
+        if self.error_type == "jackknife":
+            # sizes with one field out
+            dfield_sizes = self.dtree.size - self.dtree.field_sizes
+            rfield_sizes = self.rtree.size - self.rtree.field_sizes
 
-            diff = est_per_field - estimation
+            for fid in range(self.dtree.N_fields):
+                dd, dr, rr = self.jackknife_pair_counts(fid)
 
-            # covariance matrix
-            rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
-            rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
-            
-            xi_subi, xi_subj = np.meshgrid(diff,diff)
-            cov += rr_subi*xi_subi*rr_subj*xi_subj
+                est_per_field = est_func(dd, dr, rr, 
+                                         dfield_sizes[fid],rfield_sizes[fid])
 
-        if self.error_type == "field-to-field":
+                diff = est_per_field - estimation
+
+                # covariance matrix
+                rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
+                rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
+                
+                xi_subi, xi_subj = np.meshgrid(diff,diff)
+                cov += rr_subi*xi_subi*rr_subj*xi_subj
+
+        elif self.error_type == "field-to-field":
+            # sizes with one field in
+            dfield_sizes = self.dtree.field_sizes
+            rfield_sizes = self.rtree.field_sizes
+
+            for fid in range(self.dtree.N_fields):
+                dd, dr, rr = self.ftf_pair_counts(fid)
+
+                est_per_field = est_func(dd, dr, rr, 
+                                         dfield_sizes[fid],rfield_sizes[fid])
+
+                diff = est_per_field - estimation
+
+                # covariance matrix
+                rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
+                rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
+                
+                xi_subi, xi_subj = np.meshgrid(diff,diff)
+                cov += rr_subi*xi_subi*rr_subj*xi_subj
+
             cov /= float(self.dtree.N_fields - 1)
 
         return cov
@@ -420,10 +401,7 @@ class twopoint_data:
                     ]
 
         # add optional units to radii column, e.g. degrees
-        if self.radii_units is not None:
-            str_rep.append("  ({:s})\n".format(self.radii_units))
-        else:
-            str_rep.append("  (Data units)\n")
+        str_rep.append("{:^14}".format("({:s})\n".format(self.radii_units)))
 
 
         str_rep.append("-" * 79 + "\n")
