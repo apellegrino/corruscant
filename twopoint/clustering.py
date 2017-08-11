@@ -123,7 +123,12 @@ def est_hamilton(dd,dr,rr,dsize,rsize):
                       np.multiply(dr,dr).astype("float64") ) - 1.
 
 def est_standard(dd,dr,rr,dsize,rsize):
-    return float(rsize) / dsize * np.divide( dd.astype("float64"), dr ) - 1.
+    try:
+        f = float(rsize) / dsize
+    except TypeError:
+        f = rsize.astype("float64") / dsize
+
+    return f * np.divide( dd.astype("float64"), dr ) - 1.
 
 def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
              err_type="jackknife", num_threads=4):
@@ -318,7 +323,10 @@ class twopoint_data:
         Nfld = self.dtree.N_fields
 
         # random field data assumed to be the same
-        resample = np.random.randint(0, Nfld, N_trials*Nfld).reshape(N_trials, Nfld)
+        resample = np.random.randint(
+                                0, Nfld, N_trials*Nfld
+                                     ).reshape(N_trials, Nfld)
+
         hists = np.apply_along_axis(np.bincount, 1, resample, minlength=Nfld)
 
         # Create a matrix M where M(i,j) is product of frequencies of ith, jth
@@ -427,6 +435,7 @@ class twopoint_data:
             return self.bootstrap_error()
         else:
             cov = self.covariance()
+
             return np.sqrt(np.diagonal(cov))
 
     def normalized_covariance(self):
@@ -454,15 +463,14 @@ class twopoint_data:
         rr_width = max([len(str(count)) for count in rr_tot]) + 2
 
         lines = [ "\n" ]
-        header = [
-                    "Bin L ".ljust(9), "Bin R ".ljust(9), "DD".ljust(dd_width, ' '),
-                    "DR".ljust(dr_width, ' '), "RR".ljust(rr_width, ' '),
-                    "Estimator".ljust(11, ' '), "Error".ljust(10, ' '),
-                  ]
+        labels = ["Bin L", "Bin R", "DD",     "DR",     "RR",     "Estimator", "Error"]
+        sizes =  [9,       9,       dd_width, dr_width, rr_width, 11,          10]
+
+        header = [label.ljust(size) for label, size in zip(labels, sizes)]
 
         lines.append(''.join(header))
 
-        # add optional units to radii column, e.g. degrees
+        # add units to radii column, e.g. degrees
         lines.append("{:^14}".format("({:s})".format(self.radii_units)))
 
 
@@ -495,3 +503,4 @@ class twopoint_data:
             lines.append(''.join(s))
 
         return '\n'.join(lines)
+
