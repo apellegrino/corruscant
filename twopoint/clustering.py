@@ -21,7 +21,11 @@ class kdtree(Structure):
                 ]
 
 PROJECT_PATH = dirname(dirname(abspath(__file__)))
-kdlib = CDLL("{:s}/bin/libkdtree.so".format(PROJECT_PATH))
+
+try:
+    kdlib = CDLL("{:s}/bin/libkdtree.so".format(PROJECT_PATH))
+except OSError:
+    raise OSError("Shared library not found. Did you remember to \"make\"?")
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -107,7 +111,11 @@ def validate_fields(fields, points):
     return newfields
 
 def est_landy_szalay(dd,dr,rr,dsize,rsize):
-    f = float(rsize) / dsize
+    try:
+        f = float(rsize) / dsize
+    except TypeError:
+        f = rsize.astype("float64") / dsize
+
     return (f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr)) / np.array(rr)
 
 def est_hamilton(dd,dr,rr,dsize,rsize):
@@ -132,8 +140,8 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
     (default "landy-szalay")
         Possible values: "standard", "landy-szalay", "hamilton"
 
-    err_type (str) -- what type of error to calculate. (default None)
-        Possible values: "jackknife", "field-to-field", "poisson", None
+    err_type (str) -- what type of error to calculate. (default "jackknife")
+        Possible values: "jackknife", "ftf", "poisson", "bootstrap", None
 
     num_threads -- the maximum number of threads that the C code will create.
     For max performance, set this to the number of logical cores (threads) on
@@ -159,7 +167,7 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
                          "not valid. Try \"standard\", \"hamilton\", or "
                          "\"landy-szalay\"".format(est_type))
 
-    #valid_err_types = ["jackknife", "field-to-field", "poisson", None]
+    #valid_err_types = ["jackknife", "ftf", "poisson", "bootstrap", None]
 
     #if err_type not in valid_err_types:
     #    raise ValueError("Estimator error type \"{:s}\" not "
@@ -261,13 +269,20 @@ class twopoint_data:
         self.error_type = None
 
     def total_pair_counts(self):
-        return (np.sum(self.dd, axis=(1,2)), np.sum(self.dr, axis=(1,2)),
-                np.sum(self.rr, axis=(1,2)) )
+        # sum each matrix across field indices 1 and 2, leaving bin index 0
+        return (
+                np.sum(self.dd, axis=(1,2)),
+                np.sum(self.dr, axis=(1,2)),
+                np.sum(self.rr, axis=(1,2)),
+                )
 
     def ftf_pair_counts(self, fid):
+        # get the diagonal element with index `fid`
         return self.dd[:,fid,fid], self.dr[:,fid,fid], self.rr[:,fid,fid]
 
     def jackknife_pair_counts(self, fid):
+        # ignore all pair counts between the field `fld` and any other, and
+        # sum the whole matrix
         dd_copy = np.copy(self.dd)
         dr_copy = np.copy(self.dr)
         rr_copy = np.copy(self.rr)
@@ -281,8 +296,52 @@ class twopoint_data:
         rr_copy[:,fid,:] = 0
         rr_copy[:,:,fid] = 0
 
-        return (np.sum(dd_copy, axis=(1,2)), np.sum(dr_copy, axis=(1,2)),
-               np.sum(rr_copy, axis=(1,2)) ) 
+        return (
+                np.sum(dd_copy, axis=(1,2)),
+                np.sum(dr_copy, axis=(1,2)),
+                np.sum(rr_copy, axis=(1,2)),
+                )
+
+    def bootstrap_pair_counts(self, N_trials):
+        """Perform bootstrap resampling on the results, and return the
+        estimator value.
+
+        Parameters
+        ----------
+        N_trials (int): The number of resamples to perform.
+
+        Returns
+        -------
+        A 2D numpy array of shape (R, N_trials) where R is the number of radii
+        bins, i.e. the number of radii values minus one.
+        """
+        Nfld = self.dtree.N_fields
+
+        # random field data assumed to be the same
+        resample = np.random.randint(0, Nfld, N_trials*Nfld).reshape(N_trials, Nfld)
+        hists = np.apply_along_axis(np.bincount, 1, resample, minlength=Nfld)
+
+        # Create a matrix M where M(i,j) is product of frequencies of ith, jth
+        # fields
+        func = lambda x: np.multiply(*np.meshgrid(x, x))
+        freqs = np.apply_along_axis(func, 1, hists)
+
+        # compute new field sizes
+        dsizes = np.sum(hists * self.dtree.field_sizes, axis=1)
+        rsizes = np.sum(hists * self.rtree.field_sizes, axis=1)
+
+        # Dot product over dimensions representing different fields only,
+        # leaving num. of trials and radii intact
+        dd = np.tensordot(self.dd, freqs, axes=((1,2),(1,2)))
+        dr = np.tensordot(self.dr, freqs, axes=((1,2),(1,2)))
+        rr = np.tensordot(self.rr, freqs, axes=((1,2),(1,2)))
+
+        return dd, dr, rr, dsizes, rsizes
+
+    def bootstrap_error(self, N_trials=1000):
+        dd, dr, rr, dsizes, rsizes = self.bootstrap_pair_counts(N_trials)
+        est = self.estimator(dd, dr, rr, dsizes, rsizes)
+        return np.std(est, axis=1)
 
     def estimate(self):
         estfunc = self.estimator
@@ -327,7 +386,7 @@ class twopoint_data:
                 xi_subi, xi_subj = np.meshgrid(diff,diff)
                 cov += rr_subi*xi_subi*rr_subj*xi_subj
 
-        elif self.error_type == "field-to-field":
+        elif self.error_type == "ftf":
             # sizes with one field in
             dfield_sizes = self.dtree.field_sizes
             rfield_sizes = self.rtree.field_sizes
@@ -364,6 +423,8 @@ class twopoint_data:
                 error[np.isinf(error)] = np.nan
 
             return error
+        elif self.error_type == "bootstrap":
+            return self.bootstrap_error()
         else:
             cov = self.covariance()
             return np.sqrt(np.diagonal(cov))
