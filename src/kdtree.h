@@ -42,8 +42,6 @@ typedef struct kdtree {
 
 kdtree_t tree_construct(double *, int *, int, int);
 
-long long * pair_count_jackknife(kdtree_t, double *, int *, int, int, double, int);
-long long * pair_count_ftf(kdtree_t, double *, int *, int, int, double, int);
-long long * pair_count_noerr(kdtree_t, double *, int, double, int);
+long long * pair_count(kdtree_t, double *, int *, int, int, double, int);
 
 #endif /* KDTREE_H */

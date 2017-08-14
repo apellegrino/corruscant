@@ -1,15 +1,16 @@
-CFLAGS= -Wall -O3 -funroll-loops -march=native -mtune=native
+CFLAGS= -Wall -Wextra -O3 -march=native -mtune=native
 SRC= src
 BIN= bin
 OBJ= obj
-
-all: python
 
 .PHONY: python
 python: mkdirs_py ${BIN}/libkdtree.so ${BIN}/libcoords.so
 
 .PHONY: benchmark
 benchmark: mkdirs_c ${BIN}/kdbench
+
+.PHONY: all
+all: python benchmark
 
 ${BIN}/libkdtree.so: ${SRC}/kdbuild.c ${SRC}/kdquery.c
 	${CC} ${CFLAGS} -shared -fPIC $^ -lpthread -o $@

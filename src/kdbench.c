@@ -10,7 +10,7 @@
 #define NUM_THREADS 4
 #define NUM_FIELDS 4
 
-int main(int argc, char *argv[]) {
+int main(void) {
 
     int i;
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     struct timespec start, finish;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    long long * output = pair_count_jackknife(data_tree, data, f, SIZE, NUM_FIELDS, radius, NUM_THREADS);
+    long long * output = pair_count(data_tree, data, f, SIZE, NUM_FIELDS, radius, NUM_THREADS);
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     long long sum = 0;
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
                                 + (finish.tv_nsec-start.tv_nsec)/1e9);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    output = pair_count_noerr(data_tree, data, SIZE, radius, NUM_THREADS);
+    output = pair_count(data_tree, data, NULL, SIZE, 1, radius, NUM_THREADS);
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     sum = 0;
