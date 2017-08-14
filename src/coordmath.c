@@ -52,3 +52,12 @@ void radecdist2cart64(double * ra, double * dec, double * dist, double * xyz,
         xyz[3*i+2] = dist[i] * sin(lat);
     }
 }
+
+void radec2sph64(double * ra, double * dec, double * theta, double * phi, int n)
+{
+    int i;
+    for(i=0; i<n; i++) {
+        theta[i] = (90.0 - dec[i]) * PI_OVER_180;
+        phi[i] = ra[i] * PI_OVER_180;
+    }
+}
