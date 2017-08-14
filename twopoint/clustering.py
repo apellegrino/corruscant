@@ -110,25 +110,23 @@ def validate_fields(fields, points):
 
     return newfields
 
-def est_landy_szalay(dd,dr,rr,dsize,rsize):
-    try:
-        f = float(rsize) / dsize
-    except TypeError:
-        f = rsize.astype("float64") / dsize
+def est_landy_szalay(d1d2,d1r2,d2r1,r1r2):
+    if d2r1 == None:
+        d2r1 = d1r2
 
-    return (f*f*np.array(dd) - 2*f*np.array(dr) + np.array(rr)) / np.array(rr)
+    return (d1d2 - d1r2 - d2r1 + r1r2) / r1r2
 
-def est_hamilton(dd,dr,rr,dsize,rsize):
-    return np.divide( np.multiply(dd,rr).astype("float64"),
-                      np.multiply(dr,dr).astype("float64") ) - 1.
+def est_hamilton(d1d2,d1r2,d2r1,r1r2):
+    if d2r1 == None:
+        d2r1 = d1r2
 
-def est_standard(dd,dr,rr,dsize,rsize):
-    try:
-        f = float(rsize) / dsize
-    except TypeError:
-        f = rsize.astype("float64") / dsize
+    return ( d1d2 * r1r2 / (d1r2 * d2r1) ) - 1. 
 
-    return f * np.divide( dd.astype("float64"), dr ) - 1.
+def est_standard(d1d2,d1r2,d2r1,r1r2):
+    if d2r1 == None:
+        d2r1 = d1r2
+
+    return d1d2 / d1r2 - 1.
 
 def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
              err_type="jackknife", num_threads=4):
@@ -253,6 +251,7 @@ class tree:
         f = None
         if self.fields is not None:
             f = self.fields.ctypes.data_as(POINTER(c_int))
+
         self.ctree = kdlib.tree_construct(data, f, 
                                           c_int(self.points.shape[0]),
                                           c_int(self.N_fields) )
@@ -268,24 +267,47 @@ class twopoint_data:
         self.dtree = dtree
         self.rtree = rtree
         self.estimator = estimator
+        self.nbins = len(radii)-1
         self.radii_euclidean = radii
         self.radii_nominal = None # to be set by wrappers of `_autocorr()`
         self.radii_units = None # to be set by wrappers of `_autocorr()`
         self.error_type = None
 
-    def total_pair_counts(self):
+    def total_pair_counts(self, normalized):
         # sum each matrix across field indices 1 and 2, leaving bin index 0
-        return (
-                np.sum(self.dd, axis=(1,2)),
-                np.sum(self.dr, axis=(1,2)),
-                np.sum(self.rr, axis=(1,2)),
-                )
+        dd = np.sum(self.dd, axis=(1,2))
+        dr = np.sum(self.dr, axis=(1,2))
+        rr = np.sum(self.rr, axis=(1,2))
 
-    def ftf_pair_counts(self, fid):
+        if normalized:
+            dsizes = self.dtree.field_sizes
+            rsizes = self.rtree.field_sizes
+
+            matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
+            dd = dd / np.sum(matrix(dsizes, dsizes)).astype('float64')
+            dr = dr / np.sum(matrix(dsizes, rsizes)).astype('float64')
+            rr = rr / np.sum(matrix(rsizes, rsizes)).astype('float64')
+
+        return dd, dr, rr
+
+    def ftf_pair_counts(self, fid, normalized):
         # get the diagonal element with index `fid`
-        return self.dd[:,fid,fid], self.dr[:,fid,fid], self.rr[:,fid,fid]
+        dd_cts = self.dd[:,fid,fid]
+        dr_cts = self.dr[:,fid,fid]
+        rr_cts = self.rr[:,fid,fid]
 
-    def jackknife_pair_counts(self, fid):
+        dsizes = self.dtree.field_sizes
+        rsizes = self.rtree.field_sizes
+
+        if normalized:
+            dd_cts = dd_cts / float(dsizes[fid] * dsizes[fid])
+            dr_cts = dr_cts / float(dsizes[fid] * rsizes[fid])
+            rr_cts = rr_cts / float(rsizes[fid] * rsizes[fid])
+
+        return dd_cts, dr_cts, rr_cts
+
+
+    def jackknife_pair_counts(self, fid, normalized):
         # ignore all pair counts between the field `fld` and any other, and
         # sum the whole matrix
         dd_copy = np.copy(self.dd)
@@ -301,11 +323,23 @@ class twopoint_data:
         rr_copy[:,fid,:] = 0
         rr_copy[:,:,fid] = 0
 
-        return (
-                np.sum(dd_copy, axis=(1,2)),
-                np.sum(dr_copy, axis=(1,2)),
-                np.sum(rr_copy, axis=(1,2)),
-                )
+        dd_cts = np.sum(dd_copy, axis=(1,2))
+        dr_cts = np.sum(dr_copy, axis=(1,2))
+        rr_cts = np.sum(rr_copy, axis=(1,2))
+
+        if normalized:
+
+            dsizes = np.copy(self.dtree.field_sizes)
+            dsizes[fid] = 0
+            rsizes = np.copy(self.rtree.field_sizes)
+            rsizes[fid] = 0
+
+            matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
+            dd_cts = dd_cts / np.sum(matrix(dsizes, dsizes)).astype('float64')
+            dr_cts = dr_cts / np.sum(matrix(dsizes, rsizes)).astype('float64')
+            rr_cts = rr_cts / np.sum(matrix(rsizes, rsizes)).astype('float64')
+
+        return dd_cts, dr_cts, rr_cts
 
     def bootstrap_pair_counts(self, N_trials):
         """Perform bootstrap resampling on the results, and return the
@@ -320,9 +354,10 @@ class twopoint_data:
         A 2D numpy array of shape (R, N_trials) where R is the number of radii
         bins, i.e. the number of radii values minus one.
         """
-        Nfld = self.dtree.N_fields
 
         # random field data assumed to be the same
+        Nfld = self.dtree.N_fields
+
         resample = np.random.randint(
                                 0, Nfld, N_trials*Nfld
                                      ).reshape(N_trials, Nfld)
@@ -331,84 +366,75 @@ class twopoint_data:
 
         # Create a matrix M where M(i,j) is product of frequencies of ith, jth
         # fields
-        func = lambda x: np.multiply(*np.meshgrid(x, x))
-        freqs = np.apply_along_axis(func, 1, hists)
+        matrix = lambda x: np.multiply(*np.meshgrid(x, x))
+        freqs = np.apply_along_axis(matrix, 1, hists)
 
-        # compute new field sizes
-        dsizes = np.sum(hists * self.dtree.field_sizes, axis=1)
-        rsizes = np.sum(hists * self.rtree.field_sizes, axis=1)
+        dsizes = self.dtree.field_sizes
+        rsizes = self.rtree.field_sizes
+
+        matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
+        dd = self.dd / np.sum(matrix(dsizes, dsizes)).astype('float64')
+        dr = self.dr / np.sum(matrix(dsizes, rsizes)).astype('float64')
+        rr = self.rr / np.sum(matrix(rsizes, rsizes)).astype('float64')
 
         # Dot product over dimensions representing different fields only,
         # leaving num. of trials and radii intact
-        dd = np.tensordot(self.dd, freqs, axes=((1,2),(1,2)))
-        dr = np.tensordot(self.dr, freqs, axes=((1,2),(1,2)))
-        rr = np.tensordot(self.rr, freqs, axes=((1,2),(1,2)))
+        dd = np.tensordot(dd, freqs, axes=((1,2),(1,2)))
+        dr = np.tensordot(dr, freqs, axes=((1,2),(1,2)))
+        rr = np.tensordot(rr, freqs, axes=((1,2),(1,2)))
 
-        return dd, dr, rr, dsizes, rsizes
+        return dd, dr, rr
 
     def bootstrap_error(self, N_trials=1000):
-        dd, dr, rr, dsizes, rsizes = self.bootstrap_pair_counts(N_trials)
-        est = self.estimator(dd, dr, rr, dsizes, rsizes)
+        dd, dr, rr = self.bootstrap_pair_counts(N_trials)
+        est = self.estimator(dd, dr, None, rr)
         return np.std(est, axis=1)
 
     def estimate(self):
-        estfunc = self.estimator
-        dd, dr, rr = self.total_pair_counts()
-        return estfunc(dd, dr, rr, self.dtree.size, self.rtree.size)
+        dd, dr, rr = self.total_pair_counts(normalized=True)
+        return self.estimator(dd, dr, None, rr)
 
     def covariance(self):
-
-        dd_tot, dr_tot, rr_tot = self.total_pair_counts()
-
         if self.error_type is None:
             return None
     
         elif self.error_type == "poisson":
             return None
 
-        est_func = self.estimator
-
-        cov = np.zeros((self.radii_euclidean.size-1,
-                        self.radii_euclidean.size-1)
-                       )
+        cov = np.zeros((self.nbins,self.nbins))
 
         estimation = self.estimate()
+        dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
 
         if self.error_type == "jackknife":
-            # sizes with one field out
-            dfield_sizes = self.dtree.size - self.dtree.field_sizes
-            rfield_sizes = self.rtree.size - self.rtree.field_sizes
 
             for fid in range(self.dtree.N_fields):
-                dd, dr, rr = self.jackknife_pair_counts(fid)
+                dd_norm, dr_norm, rr_norm = self.jackknife_pair_counts(fid, normalized=True)
+                dd, dr, rr = self.jackknife_pair_counts(fid, normalized=False)
 
-                est_per_field = est_func(dd, dr, rr, 
-                                         dfield_sizes[fid],rfield_sizes[fid])
-
+                est_per_field = self.estimator(dd_norm, dr_norm, None, rr_norm)
                 diff = est_per_field - estimation
 
                 # covariance matrix
-                rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
+
+                # already normalized
+                rr_quotient = np.sqrt(rr / rr_tot.astype('float64'))
                 rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
                 
                 xi_subi, xi_subj = np.meshgrid(diff,diff)
                 cov += rr_subi*xi_subi*rr_subj*xi_subj
 
         elif self.error_type == "ftf":
-            # sizes with one field in
-            dfield_sizes = self.dtree.field_sizes
-            rfield_sizes = self.rtree.field_sizes
-
             for fid in range(self.dtree.N_fields):
-                dd, dr, rr = self.ftf_pair_counts(fid)
+                dd_norm, dr_norm, rr_norm = self.ftf_pair_counts(fid, normalized=True)
+                dd, dr, rr = self.ftf_pair_counts(fid, normalized=False)
 
-                est_per_field = est_func(dd, dr, rr, 
-                                         dfield_sizes[fid],rfield_sizes[fid])
-
+                est_per_field = self.estimator(dd_norm, dr_norm, None, rr_norm)
                 diff = est_per_field - estimation
 
                 # covariance matrix
-                rr_quotient = np.sqrt(rr.astype('float64') / rr_tot)
+
+                rr_quotient = np.sqrt(rr / rr_tot.astype('float64'))
                 rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
                 
                 xi_subi, xi_subj = np.meshgrid(diff,diff)
@@ -422,7 +448,7 @@ class twopoint_data:
         if self.error_type is None:
             return None
         elif self.error_type == "poisson":
-            dd_tot, dr_tot, rr_tot = self.total_pair_counts()
+            dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
 
             estimation = self.estimate()
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -435,7 +461,6 @@ class twopoint_data:
             return self.bootstrap_error()
         else:
             cov = self.covariance()
-
             return np.sqrt(np.diagonal(cov))
 
     def normalized_covariance(self):
@@ -450,7 +475,7 @@ class twopoint_data:
     def __str__(self):
         r_lower = self.radii_nominal[:-1]
         r_upper = self.radii_nominal[1:]
-        dd_tot, dr_tot, rr_tot = self.total_pair_counts()
+        dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
         est = self.estimate()
         err = self.error()
 
