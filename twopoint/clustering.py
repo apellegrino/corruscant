@@ -56,6 +56,7 @@ def _query_tree(tree, points, radius, num_threads, fields=None,
                 N_fields=1):
 
     fields_arg = None
+
     if fields is not None:
         fields_arg = fields.ctypes.data_as(POINTER(c_int))
 
@@ -110,21 +111,32 @@ def validate_fields(fields, points):
 
     return newfields
 
-def est_landy_szalay(d1d2,d1r2,d2r1,r1r2):
-    if d2r1 == None:
+def est_landy_szalay(*args):
+    if len(args) == 3:
+        d1d2, d1r2, r1r2 = args
         d2r1 = d1r2
+    elif len(args) == 4:
+        d1d2, d1r2, d2r1, r1r2 = args
 
     return (d1d2 - d1r2 - d2r1 + r1r2) / r1r2
 
-def est_hamilton(d1d2,d1r2,d2r1,r1r2):
-    if d2r1 == None:
+def est_hamilton(*args):
+    if len(args) == 3:
+        d1d2, d1r2, r1r2 = args
         d2r1 = d1r2
+
+    elif len(args) == 4:
+        d1d2, d1r2, d2r1, r1r2 = args
 
     return ( d1d2 * r1r2 / (d1r2 * d2r1) ) - 1. 
 
-def est_standard(d1d2,d1r2,d2r1,r1r2):
-    if d2r1 == None:
+def est_standard(*args):
+    if len(args) == 3:
+        d1d2, d1r2, r1r2 = args
         d2r1 = d1r2
+
+    elif len(args) == 4:
+        d1d2, d1r2, d2r1, r1r2 = args
 
     return d1d2 / d1r2 - 1.
 
@@ -184,6 +196,7 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
     #    raise ValueError("Error cannot be calculated when random tree has no "
     #                     "fields")
 
+    # TODO simplify call with .fields, .N_fields
     dd = lambda r: _query_tree(data_tree, data_tree.points, r, num_threads,
                                 data_tree.fields, data_tree.N_fields)
     dd_array = np.diff([dd(r) for r in radii], axis=0)
@@ -193,14 +206,72 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
     dr_array = np.diff([dr(r) for r in radii], axis=0)
 
     rr = lambda r: _query_tree(rand_tree, rand_tree.points, r,
-                                num_threads, rand_tree.fields, rand_tree.N_fields)
+                               num_threads, rand_tree.fields,
+                               rand_tree.N_fields)
+
     rr_array = np.diff([rr(r) for r in radii], axis=0)
 
-    data = twopoint_data(dd_array, dr_array, rr_array, data_tree, rand_tree,
-                         estimator, radii)
+    results = twopoint_autocorr_results(dd_array, dr_array, rr_array, data_tree,
+                                     rand_tree, estimator, radii)
 
-    data.error_type = err_type
-    return data
+    results.error_type = err_type
+    return results
+
+def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
+               est_type="landy-szalay", err_type="jackknife", num_threads=4):
+    
+    if data_tree.N_fields != rand_tree.N_fields:
+        raise ValueError("data and random trees must have same number of "
+                         "fields")
+
+    if est_type == "landy-szalay":
+        estimator = est_landy_szalay
+    elif est_type == "hamilton":
+        estimator = est_hamilton
+    elif est_type == "standard":
+        estimator = est_standard
+    else:
+        raise ValueError("Estimator type for Xi \"{:s}\" "
+                         "not valid. Try \"standard\", \"hamilton\", or "
+                         "\"landy-szalay\"".format(est_type))
+
+    if data_tree_1.size > data_tree_2.size:
+        d1d2 = lambda r: _query_tree(data_tree_1, data_tree_2.points, r,
+                                     num_threads, data_tree_2.fields,
+                                     data_tree_2.N_fields)
+    else:
+        d1d2 = lambda r: _query_tree(data_tree_2, data_tree_1.points, r,
+                                     num_threads, data_tree_1.fields,
+                                     data_tree_1.N_fields)
+
+    d1d2_array = np.diff([d1d2(r) for r in radii], axis=0)
+
+    d1r2 = lambda r: _query_tree(rand_tree_2, data_tree_1.points, r, num_threads,
+                                data_tree_1.fields, data_tree_1.N_fields)
+    d1r2_array = np.diff([d1r2(r) for r in radii], axis=0)
+
+    d2r1 = lambda r: _query_tree(rand_tree_1, data_tree_2.points, r, num_threads,
+                                data_tree_2.fields, data_tree_2.N_fields)
+    dr_array = np.diff([dr(r) for r in radii], axis=0)
+
+    if rand_tree_1.size > rand_tree_2.size:
+        r1r2 = lambda r: _query_tree(rand_tree_1, rand_tree_2.points, r,
+                                     num_threads, rand_tree_2.fields,
+                                     rand_tree_2.N_fields)
+    else:
+        r1r2 = lambda r: _query_tree(rand_tree_2, rand_tree_1.points, r,
+                                     num_threads, rand_tree_1.fields,
+                                     rand_tree_1.N_fields)
+
+    r1r2_array = np.diff([r1r2(r) for r in radii], axis=0)
+
+    results = twopoint_crosscorr_results(d1d2_array, d1r2_array, d2r1_array,
+                                     r1r2_array, data_tree_1, data_tree_2,
+                                     rand_tree_1, rand_tree_2, estimator,
+                                     radii)
+
+    results.error_type = err_type
+    return results
 
 class tree:
     def __init__(self, points, fields=None):
@@ -259,13 +330,9 @@ class tree:
     def __del__(self):
         kdlib.destroy(self.ctree)
 
-class twopoint_data:
-    def __init__(self, dd, dr, rr, dtree, rtree, estimator, radii):
-        self.dd = dd
-        self.dr = dr
-        self.rr = rr
-        self.dtree = dtree
-        self.rtree = rtree
+
+class twopoint_results(object):
+    def __init__(self, estimator, radii):
         self.estimator = estimator
         self.nbins = len(radii)-1
         self.radii_euclidean = radii
@@ -275,71 +342,56 @@ class twopoint_data:
 
     def total_pair_counts(self, normalized):
         # sum each matrix across field indices 1 and 2, leaving bin index 0
-        dd = np.sum(self.dd, axis=(1,2))
-        dr = np.sum(self.dr, axis=(1,2))
-        rr = np.sum(self.rr, axis=(1,2))
+
+        cts = [np.sum(arr, axis=(1,2)) for arr in self.count_arrays]
 
         if normalized:
-            dsizes = self.dtree.field_sizes
-            rsizes = self.rtree.field_sizes
 
+            cts = [arr.astype('float64') for arr in cts]
             matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
-            dd = dd / np.sum(matrix(dsizes, dsizes)).astype('float64')
-            dr = dr / np.sum(matrix(dsizes, rsizes)).astype('float64')
-            rr = rr / np.sum(matrix(rsizes, rsizes)).astype('float64')
+            for arr,(asizes,bsizes) in zip(cts,self.count_sizes):
+                arr /= np.sum(matrix(asizes, bsizes))
 
-        return dd, dr, rr
+        return cts
 
     def ftf_pair_counts(self, fid, normalized):
         # get the diagonal element with index `fid`
-        dd_cts = self.dd[:,fid,fid]
-        dr_cts = self.dr[:,fid,fid]
-        rr_cts = self.rr[:,fid,fid]
-
-        dsizes = self.dtree.field_sizes
-        rsizes = self.rtree.field_sizes
+        cts = [np.copy(arr[:,fid,fid]) for arr in self.count_arrays]
 
         if normalized:
-            dd_cts = dd_cts / float(dsizes[fid] * dsizes[fid])
-            dr_cts = dr_cts / float(dsizes[fid] * rsizes[fid])
-            rr_cts = rr_cts / float(rsizes[fid] * rsizes[fid])
+            cts = [arr.astype('float64') for arr in cts]
+            for arr,(asizes,bsizes) in zip(cts,self.count_sizes):
+                arr /= float(asizes[fid] * bsizes[fid])
 
-        return dd_cts, dr_cts, rr_cts
-
+        return cts
 
     def jackknife_pair_counts(self, fid, normalized):
         # ignore all pair counts between the field `fld` and any other, and
         # sum the whole matrix
-        dd_copy = np.copy(self.dd)
-        dr_copy = np.copy(self.dr)
-        rr_copy = np.copy(self.rr)
 
-        dd_copy[:,fid,:] = 0
-        dd_copy[:,:,fid] = 0
+        count_copies = [np.copy(arr) for arr in self.count_arrays]
+            
+        for arr in count_copies:
+            arr[:,fid,:] = 0
+            arr[:,:,fid] = 0
 
-        dr_copy[:,fid,:] = 0
-        dr_copy[:,:,fid] = 0
-
-        rr_copy[:,fid,:] = 0
-        rr_copy[:,:,fid] = 0
-
-        dd_cts = np.sum(dd_copy, axis=(1,2))
-        dr_cts = np.sum(dr_copy, axis=(1,2))
-        rr_cts = np.sum(rr_copy, axis=(1,2))
+        jk_cts = [np.sum(arr, axis=(1,2)) for arr in count_copies]
 
         if normalized:
+            jk_cts = [arr.astype('float64') for arr in jk_cts]
 
-            dsizes = np.copy(self.dtree.field_sizes)
-            dsizes[fid] = 0
-            rsizes = np.copy(self.rtree.field_sizes)
-            rsizes[fid] = 0
+            sizes = [(np.copy(a), np.copy(b)) for a,b in self.count_sizes]
+
+            for a,b in sizes:
+                a[fid] = 0
+                b[fid] = 0
 
             matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
-            dd_cts = dd_cts / np.sum(matrix(dsizes, dsizes)).astype('float64')
-            dr_cts = dr_cts / np.sum(matrix(dsizes, rsizes)).astype('float64')
-            rr_cts = rr_cts / np.sum(matrix(rsizes, rsizes)).astype('float64')
 
-        return dd_cts, dr_cts, rr_cts
+            for cts,(asize,bsize) in zip(jk_cts,sizes):
+                cts /= np.sum(matrix(asize,bsize)).astype('float64')
+
+        return jk_cts
 
     def bootstrap_pair_counts(self, N_trials):
         """Perform bootstrap resampling on the results, and return the
@@ -369,30 +421,24 @@ class twopoint_data:
         matrix = lambda x: np.multiply(*np.meshgrid(x, x))
         freqs = np.apply_along_axis(matrix, 1, hists)
 
-        dsizes = self.dtree.field_sizes
-        rsizes = self.rtree.field_sizes
-
         matrix = lambda x, y: np.multiply(*np.meshgrid(x, y))
-        dd = self.dd / np.sum(matrix(dsizes, dsizes)).astype('float64')
-        dr = self.dr / np.sum(matrix(dsizes, rsizes)).astype('float64')
-        rr = self.rr / np.sum(matrix(rsizes, rsizes)).astype('float64')
+        cts = [arr / np.sum(matrix(asize, bsize)).astype('float64') for arr,(asize,bsize) in zip(self.count_arrays,self.count_sizes)]
 
         # Dot product over dimensions representing different fields only,
         # leaving num. of trials and radii intact
-        dd = np.tensordot(dd, freqs, axes=((1,2),(1,2)))
-        dr = np.tensordot(dr, freqs, axes=((1,2),(1,2)))
-        rr = np.tensordot(rr, freqs, axes=((1,2),(1,2)))
 
-        return dd, dr, rr
+        cts = [np.tensordot(arr, freqs, axes=((1,2),(1,2))) for arr in cts]
+
+        return cts
 
     def bootstrap_error(self, N_trials=1000):
-        dd, dr, rr = self.bootstrap_pair_counts(N_trials)
-        est = self.estimator(dd, dr, None, rr)
+        cts = self.bootstrap_pair_counts(N_trials)
+        est = self.estimator(*cts)
         return np.std(est, axis=1)
 
     def estimate(self):
-        dd, dr, rr = self.total_pair_counts(normalized=True)
-        return self.estimator(dd, dr, None, rr)
+        cts = self.total_pair_counts(normalized=True)
+        return self.estimator(*cts)
 
     def covariance(self):
         if self.error_type is None:
@@ -404,21 +450,19 @@ class twopoint_data:
         cov = np.zeros((self.nbins,self.nbins))
 
         estimation = self.estimate()
-        dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
+        cts_tot = self.total_pair_counts(normalized=False)
 
         if self.error_type == "jackknife":
 
             for fid in range(self.dtree.N_fields):
-                dd_norm, dr_norm, rr_norm = self.jackknife_pair_counts(fid, normalized=True)
-                dd, dr, rr = self.jackknife_pair_counts(fid, normalized=False)
+                cts_norm = self.jackknife_pair_counts(fid, normalized=True)
+                cts = self.jackknife_pair_counts(fid, normalized=False)
 
-                est_per_field = self.estimator(dd_norm, dr_norm, None, rr_norm)
+                est_per_field = self.estimator(*cts_norm)
                 diff = est_per_field - estimation
 
                 # covariance matrix
-
-                # already normalized
-                rr_quotient = np.sqrt(rr / rr_tot.astype('float64'))
+                rr_quotient = np.sqrt(cts[-1] / cts_tot[-1].astype('float64'))
                 rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
                 
                 xi_subi, xi_subj = np.meshgrid(diff,diff)
@@ -426,21 +470,20 @@ class twopoint_data:
 
         elif self.error_type == "ftf":
             for fid in range(self.dtree.N_fields):
-                dd_norm, dr_norm, rr_norm = self.ftf_pair_counts(fid, normalized=True)
-                dd, dr, rr = self.ftf_pair_counts(fid, normalized=False)
+                cts_norm = self.ftf_pair_counts(fid, normalized=True)
+                cts = self.ftf_pair_counts(fid, normalized=False)
 
-                est_per_field = self.estimator(dd_norm, dr_norm, None, rr_norm)
+                est_per_field = self.estimator(*cts_norm)
                 diff = est_per_field - estimation
 
                 # covariance matrix
-
-                rr_quotient = np.sqrt(rr / rr_tot.astype('float64'))
+                rr_quotient = np.sqrt(cts[-1] / cts_tot[-1].astype('float64'))
                 rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
                 
                 xi_subi, xi_subj = np.meshgrid(diff,diff)
                 cov += rr_subi*xi_subi*rr_subj*xi_subj
 
-            cov /= float(self.dtree.N_fields - 1)
+            cov /= float(self.N_fields - 1)
 
         return cov
 
@@ -448,11 +491,11 @@ class twopoint_data:
         if self.error_type is None:
             return None
         elif self.error_type == "poisson":
-            dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
+            cts_tot = self.total_pair_counts(normalized=False)
 
             estimation = self.estimate()
             with np.errstate(divide='ignore', invalid='ignore'):
-                error = np.divide(1 + estimation,np.sqrt(dd_tot))
+                error = np.divide(1 + estimation,np.sqrt(cts_tot[0]))
                 error[np.isneginf(error)] = np.nan
                 error[np.isinf(error)] = np.nan
 
@@ -528,4 +571,48 @@ class twopoint_data:
             lines.append(''.join(s))
 
         return '\n'.join(lines)
+
+class twopoint_autocorr_results(twopoint_results):
+    def __init__(self, dd, dr, rr, dtree, rtree, estimator, radii):
+        self.dd = dd
+        self.dr = dr
+        self.rr = rr
+        self.dtree = dtree
+        self.rtree = rtree
+
+        # TODO more consistent way to determine N_fields
+        self.N_fields = dtree.N_fields
+
+        self.count_arrays = [self.dd, self.dr, self.rr]
+        self.count_sizes = [
+                        (self.dtree.field_sizes, self.dtree.field_sizes),
+                        (self.dtree.field_sizes, self.rtree.field_sizes),
+                        (self.rtree.field_sizes, self.rtree.field_sizes)
+                            ]
+        super(twopoint_autocorr_results, self).__init__(estimator, radii)
+
+class twopoint_crosscorr_results(twopoint_results):
+    def __init__(self, d1d2, d1r2, d2r1, r1r2, dtree_1, dtree_2, rtree_1,
+                 rtree_2, estimator, radii):
+        self.d1d2 = d1d2
+        self.d1r2 = d1r2
+        self.d2r1 = d2r1
+        self.r1r2 = r1r2
+        self.dtree_1 = dtree_1
+        self.dtree_2 = dtree_2
+        self.rtree_1 = rtree_1
+        self.rtree_2 = rtree_2
+
+        # TODO more consistent way to determine N_fields
+        self.N_fields = dtree_1.N_fields
+
+        self.count_arrays = [self.d1d2, self.d1r2, self.d2r1, self.r1r2]
+        self.count_sizes = [
+                        (self.dtree_1.field_sizes, self.dtree_2.field_sizes),
+                        (self.dtree_1.field_sizes, self.rtree_2.field_sizes),
+                        (self.dtree_2.field_sizes, self.rtree_1.field_sizes),
+                        (self.rtree_1.field_sizes, self.rtree_2.field_sizes),
+                    ]
+
+        super(twopoint_crosscorr_results, self).__init__(estimator, radii)
 

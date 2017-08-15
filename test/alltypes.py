@@ -23,14 +23,18 @@ dtree = twopoint.clustering.tree(X_data, data_fields)
 rtree = twopoint.clustering.tree(X_rand, rand_fields)
 
 # get the correlation function results
+
+from twopoint.clustering import est_standard, est_hamilton, est_landy_szalay
 err_types = [None, "poisson", "ftf", "jackknife", "bootstrap"]
-est_types = ["standard", "hamilton", "landy-szalay"]
+est_types = [est_standard, est_hamilton, est_landy_szalay]
+
+results = twopoint.threedim.autocorr(dtree, rtree, radii,
+                           num_threads=4)
 
 for est in est_types:
     for err in err_types:
-        print("Estimator = {:s}, Error = {:s}".format(est, err))
-        results = twopoint.threedim.autocorr(dtree, rtree, radii,
-                                   err_type=err, est_type=est,
-                                   num_threads=4)
-
+        results.estimator = est
+        results.error_type = err
+        print("\n")
+        print("Estimator type = {:s}, Error type = {:s}".format(est, err))
         print(results)

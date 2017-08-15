@@ -23,6 +23,16 @@ def autocorr(data_tree, rand_tree, radii, **kwargs):
 
     return results
 
+def crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
+              **kwargs):
+    
+    results = clustering._crosscorr(data_tree_1, data_tree_2, rand_tree_1,
+                                    rand_tree_2, radii, **kwargs)
+    results.radii_nominal = results.radii_euclidean
+    results.radii_units = "Data units"
+
+    return results
+
 def cartesian(ra, dec, distance=None, z=None, cosmology=None):
     """Creates array of cartesian points given ra, dec, distance arrays or ra,
     dec, redshift arrays with an Astropy cosmology. Provided distances take
