@@ -526,7 +526,7 @@ class twopoint_results(object):
             err = [None] * len(est)
 
         # calc column widths for pair counts
-        ct_widths = [max([len(str(count)) for count in ct]) + 2 for ct in cts]
+        ct_widths = [max([len(str(count)) for count in ct] + [4]) + 2 for ct in cts]
 
         lines = [ "\n" ]
 
