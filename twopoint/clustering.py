@@ -167,7 +167,7 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
     covariance matrix functions and the error type
     """
 
-    if data_tree.N_fields != rand_tree.N_fields:
+    if not (data_tree.N_fields == rand_tree.N_fields):
         raise ValueError("data and random trees must have same number of "
                          "fields")
 
@@ -220,7 +220,8 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
 def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
                est_type="landy-szalay", err_type="jackknife", num_threads=4):
     
-    if data_tree.N_fields != rand_tree.N_fields:
+    if not (data_tree_1.N_fields == data_tree_2.N_fields == \
+            rand_tree_1.N_fields == rand_tree_2.N_fields):
         raise ValueError("data and random trees must have same number of "
                          "fields")
 
@@ -252,7 +253,7 @@ def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
 
     d2r1 = lambda r: _query_tree(rand_tree_1, data_tree_2.points, r, num_threads,
                                 data_tree_2.fields, data_tree_2.N_fields)
-    dr_array = np.diff([dr(r) for r in radii], axis=0)
+    d2r1_array = np.diff([d2r1(r) for r in radii], axis=0)
 
     if rand_tree_1.size > rand_tree_2.size:
         r1r2 = lambda r: _query_tree(rand_tree_1, rand_tree_2.points, r,
@@ -329,7 +330,6 @@ class tree:
 
     def __del__(self):
         kdlib.destroy(self.ctree)
-
 
 class twopoint_results(object):
     def __init__(self, estimator, radii):
@@ -408,7 +408,7 @@ class twopoint_results(object):
         """
 
         # random field data assumed to be the same
-        Nfld = self.dtree.N_fields
+        Nfld = self.N_fields
 
         resample = np.random.randint(
                                 0, Nfld, N_trials*Nfld
@@ -454,7 +454,7 @@ class twopoint_results(object):
 
         if self.error_type == "jackknife":
 
-            for fid in range(self.dtree.N_fields):
+            for fid in range(self.N_fields):
                 cts_norm = self.jackknife_pair_counts(fid, normalized=True)
                 cts = self.jackknife_pair_counts(fid, normalized=False)
 
@@ -469,7 +469,7 @@ class twopoint_results(object):
                 cov += rr_subi*xi_subi*rr_subj*xi_subj
 
         elif self.error_type == "ftf":
-            for fid in range(self.dtree.N_fields):
+            for fid in range(self.N_fields):
                 cts_norm = self.ftf_pair_counts(fid, normalized=True)
                 cts = self.ftf_pair_counts(fid, normalized=False)
 
@@ -518,7 +518,7 @@ class twopoint_results(object):
     def __str__(self):
         r_lower = self.radii_nominal[:-1]
         r_upper = self.radii_nominal[1:]
-        dd_tot, dr_tot, rr_tot = self.total_pair_counts(normalized=False)
+        cts = self.total_pair_counts(normalized=False)
         est = self.estimate()
         err = self.error()
 
@@ -526,13 +526,16 @@ class twopoint_results(object):
             err = [None] * len(est)
 
         # calc column widths for pair counts
-        dd_width = max([len(str(count)) for count in dd_tot]) + 2
-        dr_width = max([len(str(count)) for count in dr_tot]) + 2
-        rr_width = max([len(str(count)) for count in rr_tot]) + 2
+        ct_widths = [max([len(str(count)) for count in ct]) + 2 for ct in cts]
 
         lines = [ "\n" ]
-        labels = ["Bin L", "Bin R", "DD",     "DR",     "RR",     "Estimator", "Error"]
-        sizes =  [9,       9,       dd_width, dr_width, rr_width, 11,          10]
+
+        if len(cts) == 3:
+            labels = ["Bin L", "Bin R", "DD", "DR", "RR", "Estimator", "Error"]
+        elif len(cts) == 4:
+            labels = ["Bin L", "Bin R", "D1D2", "D1R2", "D2R1", "R1R2", "Estimator", "Error"]
+
+        sizes =  [9,       9,   ] + ct_widths + [11,          10]
 
         header = [label.ljust(size) for label, size in zip(labels, sizes)]
 
@@ -546,8 +549,8 @@ class twopoint_results(object):
 
         ########## end of table header ##########
 
-        for rl, ru, dd, dr, rr, estv, errv in \
-                zip(r_lower, r_upper, dd_tot, dr_tot, rr_tot, est, err):
+        for rl, ru, estv, errv, ct in \
+                zip(r_lower, r_upper, est, err, zip(*cts)):
 
             rl_s =  "{:.2E}".format(rl)
             ru_s =  "{:.2E}".format(ru)
@@ -561,9 +564,8 @@ class twopoint_results(object):
             s = [
                     "{:<9}".format(rl_s),
                     "{:<9}".format(ru_s),
-                    "{:<{:d}}".format(dd, dd_width),
-                    "{:<{:d}}".format(dr, dr_width),
-                    "{:<{:d}}".format(rr, rr_width),
+                 ] + ["{:<{:d}}".format(c, w) for c,w in zip(ct,ct_widths)] + \
+                [
                     "{:<11}".format(estv_s),
                     "{:<10}".format(errv_s),
                  ]
@@ -577,17 +579,15 @@ class twopoint_autocorr_results(twopoint_results):
         self.dd = dd
         self.dr = dr
         self.rr = rr
-        self.dtree = dtree
-        self.rtree = rtree
 
         # TODO more consistent way to determine N_fields
         self.N_fields = dtree.N_fields
 
         self.count_arrays = [self.dd, self.dr, self.rr]
         self.count_sizes = [
-                        (self.dtree.field_sizes, self.dtree.field_sizes),
-                        (self.dtree.field_sizes, self.rtree.field_sizes),
-                        (self.rtree.field_sizes, self.rtree.field_sizes)
+                (np.copy(dtree.field_sizes), np.copy(dtree.field_sizes)),
+                (np.copy(dtree.field_sizes), np.copy(rtree.field_sizes)),
+                (np.copy(rtree.field_sizes), np.copy(rtree.field_sizes)),
                             ]
         super(twopoint_autocorr_results, self).__init__(estimator, radii)
 
@@ -598,21 +598,17 @@ class twopoint_crosscorr_results(twopoint_results):
         self.d1r2 = d1r2
         self.d2r1 = d2r1
         self.r1r2 = r1r2
-        self.dtree_1 = dtree_1
-        self.dtree_2 = dtree_2
-        self.rtree_1 = rtree_1
-        self.rtree_2 = rtree_2
 
         # TODO more consistent way to determine N_fields
         self.N_fields = dtree_1.N_fields
 
         self.count_arrays = [self.d1d2, self.d1r2, self.d2r1, self.r1r2]
         self.count_sizes = [
-                        (self.dtree_1.field_sizes, self.dtree_2.field_sizes),
-                        (self.dtree_1.field_sizes, self.rtree_2.field_sizes),
-                        (self.dtree_2.field_sizes, self.rtree_1.field_sizes),
-                        (self.rtree_1.field_sizes, self.rtree_2.field_sizes),
-                    ]
+                (np.copy(dtree_1.field_sizes), np.copy(dtree_2.field_sizes)),
+                (np.copy(dtree_1.field_sizes), np.copy(rtree_2.field_sizes)),
+                (np.copy(dtree_2.field_sizes), np.copy(rtree_1.field_sizes)),
+                (np.copy(rtree_1.field_sizes), np.copy(rtree_2.field_sizes)),
+                            ]
 
         super(twopoint_crosscorr_results, self).__init__(estimator, radii)
 
