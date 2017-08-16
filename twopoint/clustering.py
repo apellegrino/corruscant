@@ -39,8 +39,7 @@ kdlib.destroy.restype = None
 kdlib.destroy.argtypes = [kdtree]
 
 # returning array w/ numbers of pair counts
-kdlib.pair_count.restype = np.ctypeslib.ndpointer(dtype=c_longlong,
-                                                            shape=(255,) )
+kdlib.pair_count.restype = POINTER(c_longlong)
 
 kdlib.pair_count.argtypes = [
                             kdtree, # tree to query
@@ -69,7 +68,7 @@ def _query_tree(tree, points, radius, num_threads, fields=None,
                                     c_int(num_threads)
                                         )
 
-    return counts[:N_fields*tree.N_fields].reshape((N_fields,tree.N_fields))
+    return np.ctypeslib.as_array(counts, shape=(N_fields, tree.N_fields))
 
 def validate_points(points):
     points = np.array(points)
