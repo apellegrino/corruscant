@@ -72,15 +72,15 @@ def cartesian(ra, dec, distance=None, z=None, cosmology=None):
     #                        out_pt.ctypes.data_as(POINTER(c_double)),
     #                        )
 
-    ra = np.require(ra, requirements='AC')
-    dec = np.require(dec, requirements='AC')
-    distance = np.require(distance, requirements='AC')
+    # require float64 before passing to double C function
+    ra = np.require(ra, requirements='AC', dtype="float64")
+    dec = np.require(dec, requirements='AC', dtype="float64")
+    distance = np.require(distance, requirements='AC', dtype="float64")
 
     N = ra.size
-
     cartesian = np.empty((N, 3))
 
-    coordlib.radec2cart64(
+    coordlib.radecdist2cart64(
                         ra.ctypes.data_as(POINTER(c_double)),
                         dec.ctypes.data_as(POINTER(c_double)),
                         distance.ctypes.data_as(POINTER(c_double)),

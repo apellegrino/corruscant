@@ -71,8 +71,8 @@ def cartesian(ra, dec):
 
     N = ra.size
 
-    ra = np.require(ra, requirements='AC')
-    dec = np.require(dec, requirements='AC')
+    ra = np.require(ra, requirements='AC', dtype='float64')
+    dec = np.require(dec, requirements='AC', dtype='float64')
 
     cartesian = np.empty((N, 3))
 
