@@ -9,6 +9,7 @@ Installation instructions for Unix-based systems
 ------------------------------------------------
 
 .. code-block:: console
+
     $ cd ~
     $ git clone https://[your Bitbucket username]@bitbucket.org/apellegrino/clustering-tree.git
     $ cd clustering-tree
@@ -18,26 +19,31 @@ Installation instructions for Unix-based systems
 Then, add the following line to the end of your ~/.bash_profile or ~/.profile file:
 
 .. code-block:: console
+
     export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
 
 Then finally:
 
 .. code-block:: console
+
     source ~/.bash_profile
 
 or
 
 .. code-block:: console
+
     source ~/.profile
 
 You can now use the library in Python with
 
 .. code-block:: console
+
     import tpcf
 
 Example usage can be found in test/example.py:
 
 .. code-block:: console
+
     from corruscant import twopoint
     from corruscant import clustering
 
@@ -76,13 +82,14 @@ Memory Efficiency
 
 Corruscant requires that input arrays be C-contiguous and that all values in
 each dimension come before any values in the next dimensions. Additionally,
-the array of integers describing field IDs must be of Numpy datatype `int32`.
+the array of integers describing field IDs must be of Numpy datatype ``int32``.
 If the user's input does not match these requirements, the input will be copied
 to new arrays as necessary. If conserving memory is critical, the user can
-update their data to be properly formatted using the `validate_points` and
-`validate_fields` functions:
+update their data to be properly formatted using the ``validate_points()`` and
+``validate_fields()`` functions:
 
 .. code-block:: console
+
     data = tpcf.validate_points(data)
     fields = tpcf.validate_fields(fields)
 
