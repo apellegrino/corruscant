@@ -1,4 +1,4 @@
-import twopoint
+from corruscant import clustering
 import numpy as np
 
 def ndupes(arr):
@@ -17,5 +17,5 @@ X_data = np.repeat(np.random.rand(N, 3).astype('float64'), 3, axis=0)
 
 print("Building tree with points of shape {:s}".format(str(X_data.shape)))
 dfields = (X_data[:,0] * 4).astype('int32')
-t = twopoint.clustering.tree(X_data, dfields)
+t = clustering.tree(X_data, dfields)
 print("Tree successfully built with {:d} unique points".format(t.size))

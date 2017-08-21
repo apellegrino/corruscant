@@ -1,7 +1,31 @@
+"""
+Copyright (C) 2016-2017 Andrew Pellegrino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+from __future__ import division, print_function
+
 from ctypes import CDLL, Structure, POINTER, c_double, c_int, c_longlong
-from os.path import abspath, dirname
+import ctypes.util
+
 import numpy as np
 import warnings
+import os
+import re
+
+import corruscant
 
 class node(Structure):
     pass
@@ -20,12 +44,7 @@ class kdtree(Structure):
         ("args",POINTER(c_int)),
                 ]
 
-PROJECT_PATH = dirname(dirname(abspath(__file__)))
-
-try:
-    kdlib = CDLL("{:s}/bin/libkdtree.so".format(PROJECT_PATH))
-except OSError:
-    raise OSError("Shared library not found. Did you remember to \"make\"?")
+kdlib = corruscant.kdlib
 
 kdlib.tree_construct.restype = kdtree
 kdlib.tree_construct.argtypes = [
@@ -104,9 +123,9 @@ def validate_fields(fields, points):
 
     newfields = np.require(fields, dtype='int32', requirements='AC')
 
-    if newfields is not fields:
-        warnings.warn("Field array is being copied to have type int32",
-                       RuntimeWarning)
+    #if newfields is not fields:
+    #    warnings.warn("Field array is being copied to have type int32",
+    #                   RuntimeWarning)
 
     return newfields
 
@@ -210,7 +229,7 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
 
     rr_array = np.diff([rr(r) for r in radii], axis=0)
 
-    results = twopoint_autocorr_results(dd_array, dr_array, rr_array, data_tree,
+    results = autocorr_results(dd_array, dr_array, rr_array, data_tree,
                                      rand_tree, estimator, radii)
 
     results.error_type = err_type
@@ -265,7 +284,7 @@ def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
 
     r1r2_array = np.diff([r1r2(r) for r in radii], axis=0)
 
-    results = twopoint_crosscorr_results(d1d2_array, d1r2_array, d2r1_array,
+    results = crosscorr_results(d1d2_array, d1r2_array, d2r1_array,
                                      r1r2_array, data_tree_1, data_tree_2,
                                      rand_tree_1, rand_tree_2, estimator,
                                      radii)
@@ -330,7 +349,7 @@ class tree:
     def __del__(self):
         kdlib.destroy(self.ctree)
 
-class twopoint_results(object):
+class results(object):
     def __init__(self, estimator, radii):
         self.estimator = estimator
         self.nbins = len(radii)-1
@@ -573,7 +592,7 @@ class twopoint_results(object):
 
         return '\n'.join(lines)
 
-class twopoint_autocorr_results(twopoint_results):
+class autocorr_results(results):
     def __init__(self, dd, dr, rr, dtree, rtree, estimator, radii):
         self.dd = dd
         self.dr = dr
@@ -588,9 +607,9 @@ class twopoint_autocorr_results(twopoint_results):
                 (np.copy(dtree.field_sizes), np.copy(rtree.field_sizes)),
                 (np.copy(rtree.field_sizes), np.copy(rtree.field_sizes)),
                             ]
-        super(twopoint_autocorr_results, self).__init__(estimator, radii)
+        super(autocorr_results, self).__init__(estimator, radii)
 
-class twopoint_crosscorr_results(twopoint_results):
+class crosscorr_results(results):
     def __init__(self, d1d2, d1r2, d2r1, r1r2, dtree_1, dtree_2, rtree_1,
                  rtree_2, estimator, radii):
         self.d1d2 = d1d2
@@ -609,5 +628,5 @@ class twopoint_crosscorr_results(twopoint_results):
                 (np.copy(rtree_1.field_sizes), np.copy(rtree_2.field_sizes)),
                             ]
 
-        super(twopoint_crosscorr_results, self).__init__(estimator, radii)
+        super(crosscorr_results, self).__init__(estimator, radii)
 

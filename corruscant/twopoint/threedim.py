@@ -1,9 +1,31 @@
+"""
+Copyright (C) 2016-2017 Andrew Pellegrino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+from __future__ import division, print_function
+
 from ctypes import CDLL, POINTER, c_double, c_int
+import ctypes.util
+
 import numpy as np
+from os.path import dirname, abspath
 
-from . import clustering
+import corruscant
+from corruscant import clustering
 
-coordlib = CDLL("{:s}/bin/libcoords.so".format(clustering.PROJECT_PATH))
+coordlib = corruscant.coordlib
 
 coordlib.radecdist2cart64.restype = None
 coordlib.radecdist2cart64.argtypes = [

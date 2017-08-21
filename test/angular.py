@@ -1,4 +1,6 @@
-import twopoint
+from corruscant import twopoint
+from corruscant import clustering
+
 import numpy as np
 
 # data set sizes
@@ -27,8 +29,8 @@ X_data = twopoint.angular.cartesian(data_ra, data_dec)
 X_rand = twopoint.angular.cartesian(rand_ra, rand_dec)
 
 # generate K-d trees
-dtree = twopoint.clustering.tree(X_data, data_fields)
-rtree = twopoint.clustering.tree(X_rand, rand_fields)
+dtree = clustering.tree(X_data, data_fields)
+rtree = clustering.tree(X_rand, rand_fields)
 
 # get the correlation function results
 results = twopoint.angular.autocorr(dtree, rtree, radii_deg,

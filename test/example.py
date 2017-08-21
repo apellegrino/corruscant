@@ -1,4 +1,6 @@
-import twopoint
+from corruscant import twopoint
+from corruscant import clustering
+
 import numpy as np
 
 # data set sizes
@@ -19,8 +21,8 @@ data_fields = (X_data[:,0] * 4).astype('int32')
 rand_fields = (X_rand[:,0] * 4).astype('int32')
 
 # generate K-d trees
-dtree = twopoint.clustering.tree(X_data, data_fields)
-rtree = twopoint.clustering.tree(X_rand, rand_fields)
+dtree = clustering.tree(X_data, data_fields)
+rtree = clustering.tree(X_rand, rand_fields)
 
 # get the correlation function results
 results = twopoint.threedim.autocorr(dtree, rtree, radii,
