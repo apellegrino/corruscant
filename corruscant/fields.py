@@ -164,7 +164,7 @@ class template:
             theta = np.empty(dec.size)
             phi = np.empty(ra.size)
 
-            coordlib.radec2sph64(
+            corruscant.coordlib.radec2sph64(
                     ra.ctypes.data_as(POINTER(c_double)),
                     dec.ctypes.data_as(POINTER(c_double)),
                     theta.ctypes.data_as(POINTER(c_double)),
