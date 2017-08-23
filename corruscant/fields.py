@@ -65,6 +65,9 @@ class template:
             self.theta = np.empty(dec.size)
             self.phi = np.empty(ra.size)
 
+            ra = np.require(ra, requirements='AC', dtype='float64')
+            dec = np.require(dec, requirements='AC', dtype='float64')
+
             corruscant.coordlib.radec2sph64(
                     ra.ctypes.data_as(POINTER(c_double)),
                     dec.ctypes.data_as(POINTER(c_double)),
@@ -144,13 +147,13 @@ class template:
 
         if np.min(hist) == 0:
             print("At least one field has no population. "
-                  "Trying Nside = {:d}...".format(Nside))
+                  "Trying Nside = {:d}...".format(2*Nside))
             return self.create_fields(Nside=2*Nside, max_ratio=max_ratio)
 
         if float(np.max(hist)) / (np.min(hist)+.01) > max_ratio:
             print("The largest field has more than {:f} ".format(max_ratio) +
                   "times the population of the smallest. "
-                  "Trying Nside = {:d}...".format(Nside))
+                  "Trying Nside = {:d}...".format(2*Nside))
             return self.create_fields(Nside=2*Nside, max_ratio=max_ratio)
 
         return np.array(pix_ids)
@@ -163,6 +166,9 @@ class template:
         else:
             theta = np.empty(dec.size)
             phi = np.empty(ra.size)
+
+            ra = np.require(ra, requirements='AC', dtype='float64')
+            dec = np.require(dec, requirements='AC', dtype='float64')
 
             corruscant.coordlib.radec2sph64(
                     ra.ctypes.data_as(POINTER(c_double)),
