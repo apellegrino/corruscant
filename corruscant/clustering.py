@@ -306,7 +306,7 @@ class tree:
             unique = np.unique(fields)
             if not np.all(unique == range(np.max(fields)+1)):
                 raise ValueError("fields must be a 1-D array of integers from "
-                                 "1 to the number of unique fields minus one")
+                                 "0 to the number of unique fields minus one")
 
             self.N_fields = unique.size
 
@@ -330,6 +330,10 @@ class tree:
         self._make_tree()
 
         self.size = self.ctree.size
+
+        # TODO
+        if fields is None:
+            self.field_sizes = np.array(self.size)
 
     def _calc_field_sizes(self):
         f = self.fields
@@ -518,9 +522,14 @@ class results(object):
                 error[np.isinf(error)] = np.nan
 
             return error
-        elif self.error_type == "bootstrap":
+
+        if self.N_fields <= 1:
+            raise ValueError("{:s} error cannot be computed without field "
+                             "information".format(self.error_type))
+
+        if self.error_type == "bootstrap":
             return self.bootstrap_error()
-        else:
+        else: # ftf, jackknife
             cov = self.covariance()
             return np.sqrt(np.diagonal(cov))
 

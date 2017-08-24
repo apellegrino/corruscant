@@ -28,6 +28,16 @@ def print_alltypes(results):
             print(results)
 
 results = twopoint.threedim.autocorr(
+                clustering.tree(testing.random_cube(dsize)),
+                clustering.tree(testing.random_cube(rsize)),
+                radii, num_threads=num_threads, err_type=None,
+                                     )
+try:
+    print_alltypes(results)
+except ValueError:
+    pass
+
+results = twopoint.threedim.autocorr(
                 clustering.tree(*testing.random_cube(dsize, N_fields)),
                 clustering.tree(*testing.random_cube(rsize, N_fields)),
                 radii, num_threads=num_threads
