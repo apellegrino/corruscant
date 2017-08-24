@@ -37,7 +37,7 @@ for N_fields in range(10,210,10):
     print times
     tot.append(times)
 
-with open("field_times.csv", 'w') as f:
+with open("results.csv", 'w') as f:
     f.write("n_fields,avg(sec),stddev(sec)\n")
     for n, times in zip(range(10,210,10), tot):
         f.write("{:d},{:f},{:f}\n".format(n, np.average(times), np.std(times)))
