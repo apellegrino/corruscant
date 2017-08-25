@@ -13,7 +13,7 @@ def make_extension(lib, src_files):
 
 setup(
     name="corruscant",
-    version="0.7.0",
+    version="0.1.0",
     description="A Python package for computing two-point correlation "
                 "functions of astronomical data",
     # long_description = 
