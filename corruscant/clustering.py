@@ -436,6 +436,9 @@ class results(object):
                                 0, Nfld, N_trials*Nfld
                                      ).reshape(N_trials, Nfld)
 
+        # test: if all fields are sampled once, error will be 0
+        #resample = np.tile(np.arange(Nfld), N_trials).reshape(N_trials, Nfld)
+
         hists = np.apply_along_axis(np.bincount, 1, resample, minlength=Nfld)
 
         # Create a matrix M where M(i,j) is product of frequencies of ith, jth
@@ -478,6 +481,8 @@ class results(object):
 
             for fid in range(self.N_fields):
                 cts_norm = self.jackknife_pair_counts(fid, normalized=True)
+
+                #(dd, dr, rr)
                 cts = self.jackknife_pair_counts(fid, normalized=False)
 
                 est_per_field = self.estimator(*cts_norm)

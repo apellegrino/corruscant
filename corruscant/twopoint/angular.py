@@ -95,7 +95,7 @@ def cartesian(ra, dec):
     ra = np.require(ra, requirements='AC', dtype='float64')
     dec = np.require(dec, requirements='AC', dtype='float64')
 
-    cartesian = np.empty((N, 3))
+    cartesian = np.empty((N, 3), dtype='float64')
 
     coordlib.radec2cart64(
                         ra.ctypes.data_as(POINTER(c_double)),
