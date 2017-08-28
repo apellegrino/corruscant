@@ -6,19 +6,19 @@ from corruscant import clustering
 x = range(2,201)
 
 jk, bs = [], []
+# data set sizes
+dsize = 20000
+rsize = dsize*20
+
+# generate random points in a cube
+np.random.seed(3)
+X_data = np.random.rand(dsize, 3)
+X_rand = np.random.rand(rsize, 3)
+
+# choose radius bin edges
+radii = np.logspace(-2.5,-1.,6)
+
 for N_fields in x:
-    # data set sizes
-    dsize = 20000
-    rsize = dsize*20
-
-    # generate random points in a cube
-    np.random.seed(3)
-    X_data = np.random.rand(dsize, 3)
-    X_rand = np.random.rand(rsize, 3)
-
-    # choose radius bin edges
-    radii = np.logspace(-2.5,-1.,6)
-
     # give each data point and random point a field ID
     # we will split up the data into fourths in the x dimension
 
@@ -40,12 +40,16 @@ for N_fields in x:
 jk = np.array(jk)
 bs = np.array(bs)
 
+np.save("jk.npy", jk)
+np.save("bs.npy", bs)
+np.save("radii.npy", radii)
+
 import matplotlib.pyplot as plt
 import richardsplot
 
 for i,(lo,hi) in enumerate(zip(radii[:-1],radii[1:])):
     
-    plt.figure()
+    plt.figure(figsize=(5,5))
     ax = plt.gca()
 
     jk_slice = jk[:,i]
@@ -54,16 +58,10 @@ for i,(lo,hi) in enumerate(zip(radii[:-1],radii[1:])):
     plt.plot(x,bs_slice,'o',label='Bootstrap Error',ls='none',markersize=2)
     plt.xlabel("Number of fields")
     plt.ylabel("Estimated Error")
-    plt.title("Error for bin r = [{:.3f}, {:.3f}]".format(lo,hi))
+    plt.title("Bin $r$ = [{:.3f}, {:.3f}]".format(lo,hi))
     plt.ylim((0.0,ax.get_ylim()[1]))
     ax.set_yticklabels([format(label, '.04f') for label in ax.get_yticks()])
     plt.tight_layout()
     plt.legend(loc='lower right')
     plt.savefig("linear/err_{:d}.png".format(i+1), dpi=200)
     #plt.show()
-exit()
-
-with open("results.csv", 'w') as f:
-    f.write("n_fields,avg(sec),stddev(sec)\n")
-    for n, times in zip(range(10,210,10), tot):
-        f.write("{:d},{:f},{:f}\n".format(n, np.average(times), np.std(times)))
