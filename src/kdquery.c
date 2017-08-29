@@ -15,8 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define STEP 20000
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -188,10 +186,12 @@ long long * pair_count(kdtree_t tree, double * data,
     _field_query = fields;
     rad = r;
 
-    if(num_threads > length) {
-        printf("More than %d threads!\n", length);
+    if(num_threads > length / 20) {
+        printf("More than %d threads!\n", length / 20);
         exit(EXIT_FAILURE);
     }
+
+    int step = length / num_threads / 20;
     
     pthread_t threads[num_threads];
     thread_args_t targs[num_threads];
@@ -202,9 +202,9 @@ long long * pair_count(kdtree_t tree, double * data,
         // give each thread a unique index, like an MPI worker
         targs[i].rank = i;
         targs[i].start = next_assign;
-        targs[i].stop = next_assign + STEP;
+        targs[i].stop = next_assign + step;
         targs[i].finished = finished+i;
-        next_assign += STEP;
+        next_assign += step;
     }
 
     // create threads
@@ -218,8 +218,6 @@ long long * pair_count(kdtree_t tree, double * data,
 
         for(i=0; i<num_threads; i++) {
             if(finished[i]) {
-                //printf("Thread %d finished\n", i);
-                //printf("Before next_assign = %d\n", next_assign);
                 started[i] = 0;
                 finished[i] = 0;
                 pthread_join(threads[i], NULL);
@@ -227,12 +225,11 @@ long long * pair_count(kdtree_t tree, double * data,
                 if (next_assign >= length) break;
 
                 targs[i].start = next_assign;
-                targs[i].stop = min(length, next_assign+STEP);
-                next_assign = min(length, next_assign+STEP);
+                targs[i].stop = min(length, next_assign+step);
+                next_assign = min(length, next_assign+step);
 
                 started[i] = 1;
                 pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
-                //printf("After next_assign = %d\n", next_assign);
             }
         }
 
@@ -243,8 +240,6 @@ long long * pair_count(kdtree_t tree, double * data,
     long long * results = calloc(num_fields * tree.num_fields, sizeof(long long));
     // join threads, sum the array for each thread into one array
     for(i=0; i<num_threads; i++) {
-        //printf("%d %d\n", i, finished[i]);
-
         if(started[i]) {
             pthread_join(threads[i], NULL);
         }
@@ -252,8 +247,8 @@ long long * pair_count(kdtree_t tree, double * data,
         for(j=0; j<num_fields*tree.num_fields; j++) {
             results[j] += ((targs[i].counter)->array)[j];
         }
-        //free_field_counter(targs[i].counter);
+        free_field_counter(targs[i].counter);
     }
-    //free(finished);
+    free(finished);
     return results;
 }
