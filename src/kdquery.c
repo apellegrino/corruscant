@@ -120,20 +120,15 @@ typedef struct thread_args {
     field_counter_t * counter;
 } thread_args_t;
 
+static inline int max(int a, int b)
+{
+    return a > b ? a : b;
+}
+
 static inline int min(int a, int b)
 {
     return a < b ? a : b;
 }
-
-/*
-void assign_idx(int rank, int size, int n_array, int * start, int * stop)
-{
-    int n_array_local = n_array / size + ( n_array % size > rank );
-
-    *start = rank * ( n_array / size ) + min( rank, n_array % size );
-    *stop = *start + n_array_local;
-}
-*/
 
 field_counter_t * init_field_counter(int qsize, int tsize)
 {
@@ -149,25 +144,17 @@ void free_field_counter(field_counter_t * c)
     free(c);
 }
 
-void * twopoint_wrap(void *voidargs)
+void * radius_on_thread(void *voidargs)
 {
-
     int i;
     thread_args_t *targs;
     targs = (thread_args_t *) voidargs;
 
-    //int rank = targs->rank;
-    int start = targs->start;
-    int stop = targs->stop;
-
-    //printf("%d %d %d\n", targs->rank, start, stop);
-   
-    for(i=start; i<stop; i++) {
+    for(i=targs->start; i<targs->stop; i++) {
         radius(1, i, targs->counter);
     }
 
     *(targs->finished) = 1;
-
     return NULL;
 }
 
@@ -191,7 +178,7 @@ long long * pair_count(kdtree_t tree, double * data,
         exit(EXIT_FAILURE);
     }
 
-    int step = length / num_threads / 20;
+    int step = max(1000, length/num_threads);
     
     pthread_t threads[num_threads];
     thread_args_t targs[num_threads];
@@ -199,28 +186,30 @@ long long * pair_count(kdtree_t tree, double * data,
     int * finished = calloc(num_threads, sizeof(int));
     for(i=0; i<num_threads; i++) {
         targs[i].counter = init_field_counter(num_fields, tree.num_fields);
+
         // give each thread a unique index, like an MPI worker
         targs[i].rank = i;
         targs[i].start = next_assign;
-        targs[i].stop = next_assign + step;
+        targs[i].stop = min(length, next_assign+step);
+        next_assign = min(length, next_assign+step);
+
         targs[i].finished = finished+i;
-        next_assign += step;
     }
 
-    // create threads
+    // create initial threads
     for(i=0; i<num_threads; i++) {
-        pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
+        pthread_create(threads+i, NULL, radius_on_thread, targs+i);
         started[i] = 1;
     }
 
-    //while (next_assign < length) {
+    // while there are queries to do, create new threads for `step` queries
     while(1) {
 
         for(i=0; i<num_threads; i++) {
             if(finished[i]) {
-                started[i] = 0;
-                finished[i] = 0;
                 pthread_join(threads[i], NULL);
+                finished[i] = 0;
+                started[i] = 0;
 
                 if (next_assign >= length) break;
 
@@ -229,26 +218,32 @@ long long * pair_count(kdtree_t tree, double * data,
                 next_assign = min(length, next_assign+step);
 
                 started[i] = 1;
-                pthread_create(threads+i, NULL, twopoint_wrap, targs+i);
+                pthread_create(threads+i, NULL, radius_on_thread, targs+i);
             }
         }
 
         if (next_assign >= length) break;
-        usleep(5000);
+        usleep(500);
     }
 
-    long long * results = calloc(num_fields * tree.num_fields, sizeof(long long));
-    // join threads, sum the array for each thread into one array
+    // join the last of the threads
     for(i=0; i<num_threads; i++) {
         if(started[i]) {
             pthread_join(threads[i], NULL);
         }
+    }
 
+    // sum the array for each thread into one array
+    long long * results = calloc(num_fields * tree.num_fields, sizeof(long long));
+
+    for(i=0; i<num_threads; i++) {
         for(j=0; j<num_fields*tree.num_fields; j++) {
             results[j] += ((targs[i].counter)->array)[j];
         }
         free_field_counter(targs[i].counter);
     }
+
+    free(started);
     free(finished);
     return results;
 }
