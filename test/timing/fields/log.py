@@ -8,7 +8,7 @@ from corruscant import clustering
 import numpy as np
 
 # data set sizes
-dsize = 20000
+dsize = 50000
 rsize = dsize*20
 
 # generate random points in a cube
@@ -29,10 +29,10 @@ dtree = clustering.tree(X_data, data_fields)
 rtree = clustering.tree(X_rand, rand_fields)
 """
 
-stmt = "twopoint.threedim.autocorr(dtree, rtree, radii, num_threads=4)"
+stmt = "twopoint.threedim.autocorr(dtree, rtree, radii, num_threads=20)"
 
 tot = []
-rng = [2**exp for exp in range(1,10)]
+rng = [2**exp for exp in range(1,12)]
 for N_fields in rng:
     times=timeit.repeat(stmt, setup.format(N_fields=N_fields), repeat=5, number=1)
     print times
