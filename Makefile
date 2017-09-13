@@ -24,6 +24,9 @@ ${BIN}/libvptree.so: ${SRC}/vpbuild.c
 ${BIN}/kdbench: ${OBJ}/kdbench.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest.o
 	${CC} $^ -lpthread -lrt -o $@
 
+${BIN}/analytic: ${OBJ}/analytic.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o
+	${CC} $^ -lpthread -lrt -o $@
+
 ${BIN}/kdbench_ang: ${OBJ}/kdbench_ang.o ${OBJ}/kdbuild.o ${OBJ}/kdquery.o ${OBJ}/kdtest.o
 	${CC} $^ -lpthread -lrt -lm -o $@
 
