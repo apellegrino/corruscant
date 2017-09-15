@@ -36,13 +36,13 @@ or
 
 You can now use the library in Python with
 
-.. code-block:: console
+.. code-block:: python
 
     import tpcf
 
 Example usage can be found in test/example.py:
 
-.. code-block:: console
+.. code-block:: python
 
     from corruscant import twopoint
     from corruscant import clustering
@@ -88,7 +88,7 @@ to new arrays as necessary. If conserving memory is critical, the user can
 update their data to be properly formatted using the ``validate_points()`` and
 ``validate_fields()`` functions:
 
-.. code-block:: console
+.. code-block:: python
 
     data = tpcf.validate_points(data)
     fields = tpcf.validate_fields(fields)
