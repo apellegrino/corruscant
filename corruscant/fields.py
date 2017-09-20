@@ -105,6 +105,7 @@ class template:
 
         # step to higher resolution if not enough pixels are populated
         npix_filled = len(pix_list)
+
         if npix_filled < self.N_fields:
             print(
                 "Nside = {:d} too small for {:d} fields ({:d} pix with data). "
@@ -134,7 +135,8 @@ class template:
 
         vweights = [pix.count for pix in pix_list]
 
-        npix_out, fld_ids = pymetis.part_graph(self.N_fields, adj_dict, vweights=vweights)
+        npix_out, fld_ids = pymetis.part_graph(self.N_fields, adj_dict,
+                                        vweights=vweights, recursive=True)
 
         # list of field ids parallel to the point list
         pix_ids = [fld_ids[[x for x,y in enumerate(pix_list) if y.id == pix][0]] for pix in pixels]
@@ -254,7 +256,7 @@ def main():
     color_dict = templ.assign_colors()
 
     hist = np.bincount(field_ids, minlength=N_fields)
-    print("from {:d} to {:d}".format((min(field_ids), max(field_ids))))
+    print("from {:d} to {:d}".format(min(field_ids), max(field_ids)))
     print("Least populated field has {:d} points".format(min(hist)))
     print("Most populated field has {:d} points".format(max(hist)))
 
