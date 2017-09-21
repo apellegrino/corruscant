@@ -34,7 +34,6 @@ rtree = clustering.tree(X_rand, rand_fields)
 
 # get the correlation function results
 results = twopoint.angular.autocorr(dtree, rtree, radii_deg,
-                           est_type="landy-szalay",
-                           err_type="jackknife", num_threads=4)
+                                    est_type="landy-szalay", num_threads=4)
 
 print(results)

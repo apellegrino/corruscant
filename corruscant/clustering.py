@@ -232,11 +232,10 @@ def _autocorr(data_tree, rand_tree, radii, est_type="landy-szalay",
     results = autocorr_results(dd_array, dr_array, rr_array, data_tree,
                                      rand_tree, estimator, radii)
 
-    results.error_type = err_type
     return results
 
 def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
-               est_type="landy-szalay", err_type="jackknife", num_threads=4):
+               est_type="landy-szalay", num_threads=4):
     
     if not (data_tree_1.N_fields == data_tree_2.N_fields == \
             rand_tree_1.N_fields == rand_tree_2.N_fields):
@@ -289,7 +288,6 @@ def _crosscorr(data_tree_1, data_tree_2, rand_tree_1, rand_tree_2, radii,
                                      rand_tree_1, rand_tree_2, estimator,
                                      radii)
 
-    results.error_type = err_type
     return results
 
 class tree:
@@ -457,102 +455,131 @@ class results(object):
         return cts
 
     def bootstrap_error(self, N_trials=1000):
+        if self.N_fields <= 1:
+            raise ValueError("Bootstrap error cannot be calculated without "
+                             "data fields")
+
         cts = self.bootstrap_pair_counts(N_trials)
         est = self.estimator(*cts)
         return np.std(est, axis=1)
+
+    def jackknife_error(self):
+        if self.N_fields <= 1:
+            raise ValueError("Jackknife error cannot be calculated without "
+                             "data fields")
+        cov = self.covariance("jackknife", normalized=False)
+        return np.sqrt(np.diagonal(cov))
+
+        #Ross, N. P. et al. 2007
+        #var = np.zeros(shape=(self.nbins,), dtype="float64")
+
+        #cts_tot = self.total_pair_counts(normalized=False)
+        #for i in range(self.N_fields):
+        #    cts_jk = self.jackknife_pair_counts(i, normalized=False)
+
+        #    var += np.divide(cts_jk[-1], cts_tot[-1], dtype="float64") * \
+        #           (self.estimator(*cts_jk) - self.estimator(*cts_tot))**2
+
+        #return np.sqrt(var)
+
+    def ftf_error(self):
+        if self.N_fields <= 1:
+            raise ValueError("field-to-field error cannot be calculated without "
+                             "data fields")
+        cov = self.covariance("ftf", normalized=False)
+        return np.sqrt(np.diagonal(cov))
+
+        #Ross, N. P. et al. 2007
+        #var = np.zeros(shape=(self.nbins,), dtype="float64")
+
+        #cts_tot = self.total_pair_counts(normalized=False)
+        #for i in range(self.N_fields):
+        #    cts_ftf = self.ftf_pair_counts(i, normalized=False)
+
+        #    print((self.estimator(*cts_ftf) - self.estimator(*cts_tot))**2)
+        #    var += np.divide((cts_ftf[1] + cts_ftf[-2]), (cts_tot[1] + cts_tot[-2]), dtype="float64") * \
+        #           (self.estimator(*cts_ftf) - self.estimator(*cts_tot))**2
+
+        #return np.sqrt(var / (self.N_fields - 1.))
+            
+    def poisson_error(self):
+            cts_tot = self.total_pair_counts(normalized=False)
+
+            # handle zero pair counts
+            with np.errstate(divide='ignore', invalid='ignore'):
+                error = np.divide(1 + self.estimate(), np.sqrt(cts_tot[0]))
+                error[np.isneginf(error)] = np.nan
+                error[np.isinf(error)] = np.nan
+
+            return error
 
     def estimate(self):
         cts = self.total_pair_counts(normalized=True)
         return self.estimator(*cts)
 
-    def covariance(self):
-        if self.error_type is None:
-            return None
-    
-        elif self.error_type == "poisson":
-            return None
+    def covariance(self, error_type, normalized=False):
+        if self.N_fields <= 1:
+            raise ValueError("Covariance matrix cannot be calculated without "
+                             "data fields")
 
         cov = np.zeros((self.nbins,self.nbins))
 
         estimation = self.estimate()
         cts_tot = self.total_pair_counts(normalized=False)
 
-        if self.error_type == "jackknife":
-
-            for fid in range(self.N_fields):
+        for fid in range(self.N_fields):
+            # last entry of cts always RR counts
+            if error_type == "jackknife" or error_type == "jk":
                 cts_norm = self.jackknife_pair_counts(fid, normalized=True)
-
-                #(dd, dr, rr)
-                cts = self.jackknife_pair_counts(fid, normalized=False)
-
-                est_per_field = self.estimator(*cts_norm)
-                diff = est_per_field - estimation
-
-                # covariance matrix
-                rr_quotient = np.sqrt(cts[-1] / cts_tot[-1].astype('float64'))
-                rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
-                
-                xi_subi, xi_subj = np.meshgrid(diff,diff)
-                cov += rr_subi*xi_subi*rr_subj*xi_subj
-
-        elif self.error_type == "ftf":
-            for fid in range(self.N_fields):
+                cts_sample = self.jackknife_pair_counts(fid, normalized=False)
+            elif error_type == "field-to-field" or error_type == "ftf":
                 cts_norm = self.ftf_pair_counts(fid, normalized=True)
-                cts = self.ftf_pair_counts(fid, normalized=False)
+                cts_sample = self.ftf_pair_counts(fid, normalized=False)
 
-                est_per_field = self.estimator(*cts_norm)
-                diff = est_per_field - estimation
+            est_per_field = self.estimator(*cts_norm)
+            diff = est_per_field - estimation
 
-                # covariance matrix
-                rr_quotient = np.sqrt(cts[-1] / cts_tot[-1].astype('float64'))
-                rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
-                
-                xi_subi, xi_subj = np.meshgrid(diff,diff)
-                cov += rr_subi*xi_subi*rr_subj*xi_subj
+            # covariance matrix
+            rr_quotient = np.sqrt(cts_sample[-1] / cts_tot[-1].astype('float64'))
+            rr_subi, rr_subj = np.meshgrid(rr_quotient,rr_quotient)
+            
+            xi_subi, xi_subj = np.meshgrid(diff,diff)
+            cov += rr_subi*xi_subi*rr_subj*xi_subj
 
+        if error_type == "field-to-field" or error_type == "ftf":
             cov /= float(self.N_fields - 1)
+
+        if normalized:
+            sigmas = np.sqrt(np.diagonal(cov))
+            i_divisor, j_divisor = np.meshgrid(sigmas,sigmas)
+            total_divisor = np.multiply(i_divisor,j_divisor)
+            return np.divide(cov,total_divisor)
 
         return cov
 
-    def error(self):
-        if self.error_type is None:
-            return None
-        elif self.error_type == "poisson":
-            cts_tot = self.total_pair_counts(normalized=False)
-
-            estimation = self.estimate()
-            with np.errstate(divide='ignore', invalid='ignore'):
-                error = np.divide(1 + estimation,np.sqrt(cts_tot[0]))
-                error[np.isneginf(error)] = np.nan
-                error[np.isinf(error)] = np.nan
-
-            return error
-
-        if self.N_fields <= 1:
-            raise ValueError("{:s} error cannot be computed without field "
-                             "information".format(self.error_type))
-
-        if self.error_type == "bootstrap":
+    def error(self, error_type):
+        if error_type == "poisson":
+            return self.poisson_error()
+        elif error_type == "jackknife" or error_type == "jk":
+            return self.jackknife_error()
+        elif error_type == "field-to-field" or error_type == "ftf":
+            return self.ftf_error()
+        elif error_type == "bootstrap":
             return self.bootstrap_error()
-        else: # ftf, jackknife
-            cov = self.covariance()
-            return np.sqrt(np.diagonal(cov))
 
-    def normalized_covariance(self):
-        # normalize covariance matrix to get the regression matrix
-        cov = self.covariance()
-
-        sigmas = np.sqrt(np.diagonal(cov))
-        i_divisor, j_divisor = np.meshgrid(sigmas,sigmas)
-        total_divisor = np.multiply(i_divisor,j_divisor)
-        return np.divide(cov,total_divisor)
+        return None
 
     def __str__(self):
         r_lower = self.radii_nominal[:-1]
         r_upper = self.radii_nominal[1:]
         cts = self.total_pair_counts(normalized=False)
         est = self.estimate()
-        err = self.error()
+        err = self.error(self.error_type)
+
+        #if self.N_fields <= 1:
+        #    err = self.error("poisson")
+        #else:
+        #    err = self.error("jackknife")
 
         if err is None:
             err = [None] * len(est)

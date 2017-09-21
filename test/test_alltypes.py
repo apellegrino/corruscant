@@ -7,15 +7,14 @@ dsize = 4000
 rsize = dsize*20
 radii = np.logspace(-2.5,-1.,6)
 radii_ang = np.logspace(-1.5,0.5,6)
-N_fields = 4
+N_fields = 8
 num_threads = 4
 
 np.random.seed(3)
 
 from corruscant.clustering import est_standard, est_hamilton, est_landy_szalay
 
-def print_alltypes(results):
-    err_types = [None, "poisson", "ftf", "jackknife", "bootstrap"]
+def print_alltypes(results, err_types=[None]):
     est_types = [est_standard, est_hamilton, est_landy_szalay]
     est_names = ["Standard", "Hamilton", "Landy-Szalay"]
 
@@ -27,22 +26,24 @@ def print_alltypes(results):
             print("Estimator type = {:s}, Error type = {:s}".format(est_name, str(err)))
             print(results)
 
+# without fields
 results = twopoint.threedim.autocorr(
                 clustering.tree(testing.random_cube(dsize)),
                 clustering.tree(testing.random_cube(rsize)),
                 radii, num_threads=num_threads, err_type=None,
                                      )
-try:
-    print_alltypes(results)
-except ValueError:
-    pass
 
+print_alltypes(results)
+
+# with fields
 results = twopoint.threedim.autocorr(
                 clustering.tree(*testing.random_cube(dsize, N_fields)),
                 clustering.tree(*testing.random_cube(rsize, N_fields)),
                 radii, num_threads=num_threads
                                      )
-print_alltypes(results)
+print_alltypes(results,
+            err_types=[None, "poisson", "ftf", "jackknife", "bootstrap"]
+                )
 
 results = twopoint.threedim.crosscorr(
                 clustering.tree(*testing.random_cube(dsize, N_fields)),
@@ -51,14 +52,18 @@ results = twopoint.threedim.crosscorr(
                 clustering.tree(*testing.random_cube(rsize, N_fields)),
                 radii, num_threads=num_threads
                                      )
-print_alltypes(results)
+print_alltypes(results,
+            err_types=[None, "poisson", "ftf", "jackknife", "bootstrap"]
+                )
 
 results = twopoint.angular.autocorr(
                 clustering.tree(*testing.random_sphere(dsize, N_fields)),
                 clustering.tree(*testing.random_sphere(rsize, N_fields)),
                 radii_ang, num_threads=num_threads
                                      )
-print_alltypes(results)
+print_alltypes(results,
+            err_types=[None, "poisson", "ftf", "jackknife", "bootstrap"]
+                )
 
 results = twopoint.angular.crosscorr(
                 clustering.tree(*testing.random_sphere(dsize, N_fields)),
@@ -67,4 +72,6 @@ results = twopoint.angular.crosscorr(
                 clustering.tree(*testing.random_sphere(rsize, N_fields)),
                 radii_ang, num_threads=num_threads
                                      )
-print_alltypes(results)
+print_alltypes(results,
+            err_types=[None, "poisson", "ftf", "jackknife", "bootstrap"]
+                )
