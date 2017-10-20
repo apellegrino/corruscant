@@ -19,6 +19,7 @@ from __future__ import division, print_function
 import numpy as np
 from healpy import ang2pix
 from healpy import pixelfunc
+from healpy import boundaries
 from ctypes import POINTER, c_double, CDLL
 import pymetis
 import corruscant
@@ -29,30 +30,7 @@ class pixel:
         self.count = count
         self.Nside = Nside
         self.neighbors = set(pixelfunc.get_all_neighbours(Nside, id)[::2])
-
-class region:
-    def __init__(self, Nside):
-        self.Nside = Nside
-        self.pixels = set()
-        self.border = set()
-
-    def add_pixel(self, p):
-        if self.pixels == set():
-            self.pixels.add(p)
-            self.neighbors = p.neighbors
-            return
-
-        self.neighbors = self.neighbors - set([p.id])
-
-        for n in p.neighbors:
-            if n not in [pix.id for pix in self.pixels]:
-                self.neighbors.add(n)
-
-        self.pixels.add(p)
-        return
-
-    def size(self):
-        return sum([p.count for p in self.pixels])
+        self.vertecies = set(map(tuple, boundaries(Nside, id).T))
 
 class template:
     def __init__(self, N_fields, theta=None, phi=None, ra=None, dec=None):
@@ -82,13 +60,12 @@ class template:
         self.N_fields = N_fields
         self.Nside = None
 
-        # maps pixel IDs to field IDs
-        self.field_dict = None
-
         # maps field IDs to color IDs
         self.color_dict = None
 
-    def create_fields(self, Nside=1, max_ratio=1.3):
+        self.filled_pix = None
+
+    def create_fields(self, Nside=1, min_ratio=1.3):
         pixels = ang2pix(Nside,self.theta,self.phi)
         self.Nside = Nside
 
@@ -100,12 +77,9 @@ class template:
 
         pix_list = [pixel(Nside,id,hist[id]) for id in ids]
 
-        # remove pixels with no points
-        pix_list = list(filter(lambda pix: pix.count > 0, pix_list))
-
         # step to higher resolution if not enough pixels are populated
-        npix_filled = len(pix_list)
-
+        self.filled_pix = list(map(lambda p: p.id, filter(lambda p: p.count > 0, pix_list)))
+        npix_filled = len(self.filled_pix)
         if npix_filled < self.N_fields:
             print(
                 "Nside = {:d} too small for {:d} fields ({:d} pix with data). "
@@ -114,50 +88,63 @@ class template:
                  )
             #del pix_list
 
-            return self.create_fields(Nside=2*Nside, max_ratio=max_ratio)
+            return self.create_fields(Nside=2*Nside, min_ratio=min_ratio)
             
         pix_list = sorted(pix_list, key=lambda x: x.id)
+        self.pix_list = pix_list
 
         adj_dict = {}
 
-        for i,pix in enumerate(pix_list):
-            adj_dict[i] = []
+        xadj_ctr = 0
+        xadj = []
+        adjncy = []
+        eweights = []
+        for pix in pix_list:
+            xadj.append(xadj_ctr)
+            adj_dict[pix.id] = []
             for n in pix.neighbors:
-                # map pixel IDs onto indices in pix_list, s.t. the full range
-                # is being used
-                matches = [x for x,y in enumerate(pix_list) if y.id == n]
-                if matches != []:
-                    index = matches[0]
-                    #adj_dict.setdefault(i, []).append(index)
-                    adj_dict[i].append(index)
+                adj_dict[pix.id].append(n)
+                adjncy.append(n)
+                xadj_ctr += 1
+
+                if pix.count == 0:
+                    eweights.append(1)
+                elif pix_list[n].count == 0:
+                    eweights.append(1)
+                else:
+                    eweights.append(1000)
+
+        xadj.append(xadj_ctr)
 
         self.adj_dict = adj_dict
 
         vweights = [pix.count for pix in pix_list]
 
-        npix_out, fld_ids = pymetis.part_graph(self.N_fields, adj_dict,
-                                        vweights=vweights, recursive=True)
+        npix_out, fld_ids = pymetis.part_graph(self.N_fields, xadj=xadj,
+                                        adjncy=adjncy, vweights=vweights,
+                                        eweights=eweights,
+                                        recursive=True)
 
         # list of field ids parallel to the point list
-        pix_ids = [fld_ids[[x for x,y in enumerate(pix_list) if y.id == pix][0]] for pix in pixels]
+        fld_ids = np.array(fld_ids)
+        pix_ids = fld_ids[np.array(pixels)]
         self.fld_ids = fld_ids
-
-        # dict mapping HEALPix pixels to fields
-        self.field_dict = {pix_id : fld_ids[[x for x,y in enumerate(pix_list) if y.id == pix_id][0]] for pix_id in pixels}
 
         hist, bins = np.histogram(pix_ids,bins=np.linspace(0,self.N_fields,self.N_fields+1))
 
         if np.min(hist) == 0:
             print("At least one field has no population. "
                   "Trying Nside = {:d}...".format(2*Nside))
-            return self.create_fields(Nside=2*Nside, max_ratio=max_ratio)
+            return self.create_fields(Nside=2*Nside, min_ratio=min_ratio)
 
-        if float(np.max(hist)) / (np.min(hist)+.01) > max_ratio:
-            print("The largest field has more than {:f} ".format(max_ratio) +
-                  "times the population of the smallest. "
-                  "Trying Nside = {:d}...".format(2*Nside))
-            return self.create_fields(Nside=2*Nside, max_ratio=max_ratio)
+        if float(np.min(hist)) / (np.average(hist)) < min_ratio:
+            print("The smallest field has less than {:.3f} ".format(min_ratio) +
+                  "times the average population. Trying "
+                  "Nside = {:d}...".format(2*Nside)
+                  )
+            return self.create_fields(Nside=2*Nside, min_ratio=min_ratio)
 
+        # TEMP
         return np.array(pix_ids)
 
     def assign_fields(self, theta=None, phi=None, ra=None, dec=None):
@@ -181,7 +168,7 @@ class template:
                                 )
 
         pix = ang2pix(self.Nside, theta, phi)
-        return np.array([self.field_dict[p] for p in pix])
+        return self.fld_ids[pix]
 
     def assign_colors(self):
             color_dict = {}
@@ -243,16 +230,16 @@ def main():
     ######## make fields from data ########
 
     # maximum acceptable ratio of smallest field count to largest field count
-    max_ratio = 1.1
+    min_ratio = 0.8
 
     # number of fields to divide data points into
-    N_fields = 15
+    N_fields = 20
 
     templ = template(N_fields, theta, phi)
 
     # group the dataset into (N_fields) roughly equal groups.
     # Assign a number from 1 to N_fields to each data point
-    field_ids = templ.create_fields(max_ratio=max_ratio)
+    field_ids = templ.create_fields(min_ratio=min_ratio)
     color_dict = templ.assign_colors()
 
     hist = np.bincount(field_ids, minlength=N_fields)
