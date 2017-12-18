@@ -24,14 +24,14 @@ With Python 2:
 .. code-block:: console
 
     python setup.py bdist_wheel
-    pip install dist/\*cp2\*.whl
+    pip install dist/*cp2*.whl
 
 With Python 3:
 
 .. code-block:: console
 
     python3 setup.py bdist_wheel
-    pip3 install dist/\*cp3\*.whl
+    pip3 install dist/*cp3*.whl
 
 When updating, uninstall the current version before reinstalling:
 
