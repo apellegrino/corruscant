@@ -92,9 +92,9 @@ example.py:
 
     # get the correlation function results
     results = twopoint.threedim.autocorr(dtree, rtree, radii,
-                               err_type="jackknife", est_type="landy-szalay",
-                               num_threads=4)
+                                        est_type="landy-szalay", num_threads=4)
 
+    results.error_type = "jackknife"
     print(results)
 
 Memory Efficiency
