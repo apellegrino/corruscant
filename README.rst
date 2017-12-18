@@ -3,38 +3,54 @@ README
 ======
 
 Corruscant is a C and Python library for calculation of the two-point
-correlation function on astronomical data.
+correlation function on astronomical data. It currently includes the
+following features:
 
-Installation instructions for Unix-based systems
-------------------------------------------------
+* Auto- or cross- correlation
+* 3-dimensional (\xi(r)) or angular (w(\theta)) functions
+* Jackknife, bootstrap, field-to-field, and Poisson errors
+* Automatic division of (\theta, \phi) or (RA, DEC) data into fields
 
-.. code-block:: console
+Installation
+------------
 
-    $ cd ~
-    $ git clone https://[your Bitbucket username]@bitbucket.org/apellegrino/clustering-tree.git
-    $ cd clustering-tree
-    $ make python
+Corruscant is currently packaged with pip, although it is not yet on the
+PyPI public repository. This means installation is somewhat more complicated
+for the moment. To install, distutils must be used to create a wheel file,
+which can then be installed with pip like a regular package.
 
-
-Then, add the following line to the end of your ~/.bash_profile or ~/.profile file:
-
-.. code-block:: console
-
-    export PYTHONPATH="$PYTHONPATH:/home/[your username here]/clustering-tree"
-
-Then finally:
+With Python 2:
 
 .. code-block:: console
 
-    source ~/.bash_profile
+    python setup.py bdist_wheel
+    pip install dist/\*cp2\*.whl
 
-or
+With Python 3:
 
 .. code-block:: console
 
-    source ~/.profile
+    python3 setup.py bdist_wheel
+    pip3 install dist/\*cp3\*.whl
 
-You can now use the library in Python with
+When updating, uninstall the current version before reinstalling:
+
+With Python 2:
+
+.. code-block:: console
+
+    sudo -H pip uninstall corruscant <<< y
+
+With Python 3:
+
+.. code-block:: console
+
+    sudo -H pip3 uninstall corruscant <<< y
+
+
+Usage
+-----
+You can use the library in Python with
 
 .. code-block:: python
 

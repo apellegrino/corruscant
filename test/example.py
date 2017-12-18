@@ -28,5 +28,5 @@ rtree = clustering.tree(X_rand, rand_fields)
 results = twopoint.threedim.autocorr(dtree, rtree, radii,
                                     est_type="landy-szalay", num_threads=4)
 
-print(results.ftf_error())
+results.error_type = "jackknife"
 print(results)
