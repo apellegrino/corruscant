@@ -56,7 +56,11 @@ You can use the library in Python with
 
     import tpcf
 
-Example usage can be found in test/example.py:
+Example usage can be found in test/example.py. Because of how Python looks
+for packages, be sure to change into the test/ directory before trying to
+run it. `python test/example.py` will not work from the root directory.
+
+example.py:
 
 .. code-block:: python
 
